@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Modal, FlatList, Switch } from 'react-native';
 import { useRunTracking } from '../../src/hooks/useRunTracking';
 import { MapComponent } from '../../src/components/MapComponent';
 import { saveRun } from '../../src/services/RunService';
+import { SavedRoutesService, SavedRoute } from '../../src/services/SavedRoutesService';
+import { AICoachService } from '../../src/services/AICoachService';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../../src/theme';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +28,28 @@ export default function StartScreen() {
   const pace = distance > 0 ? (duration / 60) / (distance / 1000) : 0;
   const calories = Math.floor(distance * 0.06);
   const [weather] = useState({ temp: 18, condition: 'partly-cloudy' });
+
+  // Modals State
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [showRoutesModal, setShowRoutesModal] = useState(false);
+  const [showAICoachModal, setShowAICoachModal] = useState(false);
+  const [showMusicModal, setShowMusicModal] = useState(false);
+
+  // Data State
+  const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
+  const [goal, setGoal] = useState<{ type: 'distance' | 'duration' | 'none', value: number }>({ type: 'none', value: 0 });
+  const [aiCoachEnabled, setAiCoachEnabled] = useState(true);
+  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+
+  useEffect(() => {
+    loadRoutes();
+  }, []);
+
+  const loadRoutes = async () => {
+    const routes = await SavedRoutesService.getAllRoutes();
+    setSavedRoutes(routes);
+  };
 
   const handleStart = () => {
     startTracking();
@@ -72,6 +96,108 @@ export default function StartScreen() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // --- Modals ---
+
+  const GoalModal = () => (
+    <Modal visible={showGoalModal} animationType="slide" transparent={true} onRequestClose={() => setShowGoalModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Set a Goal</Text>
+          <TouchableOpacity style={styles.modalOption} onPress={() => { setGoal({ type: 'distance', value: 5000 }); setShowGoalModal(false); }}>
+            <Ionicons name="navigate" size={24} color="#f97316" />
+            <Text style={styles.modalOptionText}>5 km Run</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.modalOption} onPress={() => { setGoal({ type: 'distance', value: 10000 }); setShowGoalModal(false); }}>
+            <Ionicons name="navigate" size={24} color="#f97316" />
+            <Text style={styles.modalOptionText}>10 km Run</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.modalOption} onPress={() => { setGoal({ type: 'duration', value: 1800 }); setShowGoalModal(false); }}>
+            <Ionicons name="time" size={24} color="#f97316" />
+            <Text style={styles.modalOptionText}>30 min Run</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowGoalModal(false)}>
+            <Text style={styles.modalCloseText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const RoutesModal = () => (
+    <Modal visible={showRoutesModal} animationType="slide" transparent={true} onRequestClose={() => setShowRoutesModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Choose a Route</Text>
+          {savedRoutes.length === 0 ? (
+            <Text style={styles.emptyText}>No saved routes yet.</Text>
+          ) : (
+            <FlatList
+              data={savedRoutes}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.modalOption} onPress={() => { setSelectedRoute(item); setShowRoutesModal(false); }}>
+                  <Ionicons name="map" size={24} color="#f97316" />
+                  <View>
+                    <Text style={styles.modalOptionText}>{item.name}</Text>
+                    <Text style={styles.modalOptionSubtext}>{(item.distance / 1000).toFixed(2)} km</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            />
+          )}
+          <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowRoutesModal(false)}>
+            <Text style={styles.modalCloseText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const AICoachModal = () => (
+    <Modal visible={showAICoachModal} animationType="slide" transparent={true} onRequestClose={() => setShowAICoachModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>AI Coach Settings</Text>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Enable Voice Coach</Text>
+            <Switch value={aiCoachEnabled} onValueChange={setAiCoachEnabled} trackColor={{ false: '#767577', true: '#f97316' }} />
+          </View>
+          <Text style={styles.modalDescription}>
+            The AI Coach will give you real-time feedback on your pace, cadence, and form during your run.
+          </Text>
+          <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowAICoachModal(false)}>
+            <Text style={styles.modalCloseText}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const MusicModal = () => (
+    <Modal visible={showMusicModal} animationType="slide" transparent={true} onRequestClose={() => setShowMusicModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Music Control</Text>
+          <View style={styles.musicControls}>
+            <TouchableOpacity onPress={() => Alert.alert('Prev', 'Previous track')}>
+              <Ionicons name="play-skip-back" size={32} color={THEME.colors.text} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setIsPlayingMusic(!isPlayingMusic)}>
+              <Ionicons name={isPlayingMusic ? "pause-circle" : "play-circle"} size={64} color="#f97316" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert('Next', 'Next track')}>
+              <Ionicons name="play-skip-forward" size={32} color={THEME.colors.text} />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.musicStatus}>{isPlayingMusic ? 'Now Playing: High Energy Mix' : 'Music Paused'}</Text>
+          <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowMusicModal(false)}>
+            <Text style={styles.modalCloseText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={styles.container}>
       {/* Header with Weather */}
@@ -99,29 +225,38 @@ export default function StartScreen() {
             isTracking={isTracking}
           />
           {!isTracking && (
-            <View style={styles.mapOverlay}>
+            <View style={styles.mapOverlay} pointerEvents="none">
               <Ionicons name="location" size={32} color="#f97316" />
               <Text style={styles.mapOverlayText}>Ready to track your run</Text>
             </View>
           )}
         </View>
 
-        {/* Stats Quick Bar */}
-        <View style={styles.statsBar}>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>PACE</Text>
-            <Text style={styles.statValue}>{formatPace(pace)}</Text>
-            <Text style={styles.statUnit}>min/km</Text>
+        {/* Stats Quick Bar (2x2 Grid) */}
+        <View style={styles.statsGrid}>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>PACE</Text>
+              <Text style={styles.statValue}>{formatPace(pace)}</Text>
+              <Text style={styles.statUnit}>min/km</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>DISTANCE</Text>
+              <Text style={styles.statValue}>{formatDistance(distance)}</Text>
+              <Text style={styles.statUnit}>km</Text>
+            </View>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>DISTANCE</Text>
-            <Text style={styles.statValue}>{formatDistance(distance)}</Text>
-            <Text style={styles.statUnit}>km</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statLabel}>CALORIES</Text>
-            <Text style={styles.statValue}>{calories}</Text>
-            <Text style={styles.statUnit}>kcal</Text>
+          <View style={styles.statsRow}>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>DURATION</Text>
+              <Text style={styles.statValue}>{formatDuration(duration)}</Text>
+              <Text style={styles.statUnit}>time</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statLabel}>CALORIES</Text>
+              <Text style={styles.statValue}>{calories}</Text>
+              <Text style={styles.statUnit}>kcal</Text>
+            </View>
           </View>
         </View>
 
@@ -150,18 +285,18 @@ export default function StartScreen() {
           <View style={styles.subActions}>
             <TouchableOpacity 
               style={styles.subAction}
-              onPress={() => Alert.alert('Set Goal', 'Goal setting feature coming soon!')}
+              onPress={() => setShowGoalModal(true)}
             >
               <Ionicons name="flag" size={18} color="#f97316" />
-              <Text style={styles.subActionText}>Set Goal</Text>
+              <Text style={styles.subActionText}>{goal.type !== 'none' ? `${goal.value} ${goal.type}` : 'Set Goal'}</Text>
             </TouchableOpacity>
             <View style={styles.subActionDivider} />
             <TouchableOpacity 
               style={styles.subAction}
-              onPress={() => Alert.alert('Choose Route', 'Route selection coming soon!')}
+              onPress={() => setShowRoutesModal(true)}
             >
               <Ionicons name="map" size={18} color="#f97316" />
-              <Text style={styles.subActionText}>Choose Route</Text>
+              <Text style={styles.subActionText}>{selectedRoute ? selectedRoute.name : 'Choose Route'}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -170,27 +305,33 @@ export default function StartScreen() {
         <View style={styles.miniMenu}>
           <TouchableOpacity 
             style={styles.miniMenuItem}
-            onPress={() => Alert.alert('Routes', 'Saved routes feature coming soon!')}
+            onPress={() => setShowRoutesModal(true)}
           >
             <Ionicons name="navigate-circle" size={24} color={THEME.colors.textSecondary} />
             <Text style={styles.miniMenuText}>Routes</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.miniMenuItem}
-            onPress={() => Alert.alert('AI Coach', 'AI Coach settings coming soon!')}
+            onPress={() => setShowAICoachModal(true)}
           >
-            <Ionicons name="sparkles" size={24} color={THEME.colors.textSecondary} />
-            <Text style={styles.miniMenuText}>AI Coach</Text>
+            <Ionicons name="sparkles" size={24} color={aiCoachEnabled ? "#f97316" : THEME.colors.textSecondary} />
+            <Text style={[styles.miniMenuText, aiCoachEnabled && { color: "#f97316" }]}>AI Coach</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.miniMenuItem}
-            onPress={() => Alert.alert('Music', 'Music integration coming soon!')}
+            onPress={() => setShowMusicModal(true)}
           >
             <Ionicons name="musical-notes" size={24} color={THEME.colors.textSecondary} />
             <Text style={styles.miniMenuText}>Music</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* Modals */}
+      <GoalModal />
+      <RoutesModal />
+      <AICoachModal />
+      <MusicModal />
     </View>
   );
 }
@@ -206,10 +347,11 @@ const styles = StyleSheet.create({
   mapContainer: { height: 300, backgroundColor: '#1a1a1a', position: 'relative' },
   mapOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   mapOverlayText: { color: '#fff', marginTop: 8, fontSize: 14 },
-  statsBar: { flexDirection: 'row', padding: 16, gap: 12 },
+  statsGrid: { padding: 16, gap: 12 },
+  statsRow: { flexDirection: 'row', gap: 12 },
   statCard: { flex: 1, backgroundColor: THEME.colors.surface, borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: THEME.colors.border },
   statLabel: { fontSize: 11, fontWeight: '600', color: THEME.colors.textSecondary, marginBottom: 8 },
-  statValue: { fontSize: 28, fontWeight: 'bold', color: '#f97316', marginBottom: 2 },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: '#f97316', marginBottom: 2 },
   statUnit: { fontSize: 12, color: THEME.colors.textSecondary },
   startButton: { marginHorizontal: 16, marginTop: 8, borderRadius: 16, overflow: 'hidden' },
   startButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 20, gap: 12 },
@@ -223,4 +365,20 @@ const styles = StyleSheet.create({
   miniMenu: { flexDirection: 'row', marginHorizontal: 16, marginTop: 24, marginBottom: 32, justifyContent: 'space-around' },
   miniMenuItem: { alignItems: 'center', gap: 6 },
   miniMenuText: { fontSize: 12, color: THEME.colors.textSecondary },
+  
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: THEME.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: THEME.colors.text, marginBottom: 20, textAlign: 'center' },
+  modalOption: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
+  modalOptionText: { fontSize: 16, color: THEME.colors.text, fontWeight: '500' },
+  modalOptionSubtext: { fontSize: 12, color: THEME.colors.textSecondary },
+  modalCloseButton: { marginTop: 24, padding: 16, alignItems: 'center', backgroundColor: THEME.colors.background, borderRadius: 12 },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: THEME.colors.text },
+  emptyText: { textAlign: 'center', color: THEME.colors.textSecondary, marginTop: 20 },
+  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  switchLabel: { fontSize: 16, color: THEME.colors.text },
+  modalDescription: { fontSize: 14, color: THEME.colors.textSecondary, lineHeight: 20, textAlign: 'center' },
+  musicControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, marginBottom: 24 },
+  musicStatus: { textAlign: 'center', color: '#f97316', fontSize: 14, fontWeight: '500' },
 });

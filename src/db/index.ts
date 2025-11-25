@@ -72,6 +72,22 @@ export const initDatabase = () => {
       createdAt INTEGER
     );
   `);
+
+  // Migrations: Try to add columns if they don't exist
+  const migrations = [
+    'ALTER TABLE runs ADD COLUMN splitsJson TEXT',
+    'ALTER TABLE runs ADD COLUMN pointsJson TEXT',
+    'ALTER TABLE runs ADD COLUMN elevationGain REAL',
+    'ALTER TABLE runs ADD COLUMN elevationLoss REAL'
+  ];
+
+  migrations.forEach(query => {
+    try {
+      db.execSync(query);
+    } catch (e) {
+      // Column likely exists, ignore error
+    }
+  });
 };
 
 export const getDB = () => db;

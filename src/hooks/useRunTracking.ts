@@ -77,9 +77,6 @@ export const useRunTracking = () => {
     lastSplitDistanceRef.current = 0;
     lowSpeedCountRef.current = 0;
 
-    // We use a separate subscription for run tracking logic if needed, 
-    // or we could hook into the existing one. For simplicity and separation, 
-    // we'll start a dedicated high-accuracy tracker for the run data.
     locationSubscription.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.BestForNavigation,
@@ -87,8 +84,6 @@ export const useRunTracking = () => {
         distanceInterval: 1,
       },
       (location) => {
-        // We don't need to set current location here as the effect above handles it for UI
-        // But we might want to ensure it's perfectly synced
         setCurrentLocation(location);
         
         const newPoint: GPSPoint = {
@@ -115,50 +110,59 @@ export const useRunTracking = () => {
         }
         
         setCurrentRunPoints((prev) => {
-          const updated = [...prev, newPoint];
-          
-          // Calculate distance
-          if (prev.length > 0) {
-            const lastPoint = prev[prev.length - 1];
-            const dist = calculateDistance(
-              lastPoint.latitude,
-              lastPoint.longitude,
-              newPoint.latitude,
-              newPoint.longitude
-            );
-            
-            setDistance((d) => {
-              const newDistance = d + dist;
-              
-              // Check for new split (every 1000m)
-              const currentKm = Math.floor(newDistance / 1000);
-              const lastKm = Math.floor(lastSplitDistanceRef.current / 1000);
-              
-              if (currentKm > lastKm && startTimeRef.current) {
-                const splitTime = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
-                const splitDistance = currentKm * 1000;
-                
-                setSplits((prevSplits) => {
-                  const lastSplitTime = prevSplits.length > 0 ? prevSplits[prevSplits.length - 1].time : 0;
-                  const splitDuration = splitTime - lastSplitTime;
-                  const splitPace = splitDuration / 60; // min/km
-                  
-                  return [
-                    ...prevSplits,
-                    {
-                      distance: splitDistance,
-                      time: splitTime,
-                      pace: splitPace,
-                    },
-                  ];
-                });
-                
-                lastSplitDistanceRef.current = newDistance;
-              }
-              
-              return newDistance;
-            });
+          // If this is the first point, just add it
+          if (prev.length === 0) {
+            return [newPoint];
           }
+
+          const lastPoint = prev[prev.length - 1];
+          const dist = calculateDistance(
+            lastPoint.latitude,
+            lastPoint.longitude,
+            newPoint.latitude,
+            newPoint.longitude
+          );
+
+          // --- GPS NOISE FILTER ---
+          // Ignore movements smaller than 4 meters to prevent "ghost" accumulation
+          // while standing still.
+          if (dist < 4) {
+            return prev;
+          }
+
+          const updated = [...prev, newPoint];
+            
+          setDistance((d) => {
+            const newDistance = d + dist;
+            
+            // Check for new split (every 1000m)
+            const currentKm = Math.floor(newDistance / 1000);
+            const lastKm = Math.floor(lastSplitDistanceRef.current / 1000);
+            
+            if (currentKm > lastKm && startTimeRef.current) {
+              const splitTime = Math.floor((Date.now() - startTimeRef.current - pausedTimeRef.current) / 1000);
+              const splitDistance = currentKm * 1000;
+              
+              setSplits((prevSplits) => {
+                const lastSplitTime = prevSplits.length > 0 ? prevSplits[prevSplits.length - 1].time : 0;
+                const splitDuration = splitTime - lastSplitTime;
+                const splitPace = splitDuration / 60; // min/km
+                
+                return [
+                  ...prevSplits,
+                  {
+                    distance: splitDistance,
+                    time: splitTime,
+                    pace: splitPace,
+                  },
+                ];
+              });
+              
+              lastSplitDistanceRef.current = newDistance;
+            }
+            
+            return newDistance;
+          });
           
           // Calculate elevation
           if (updated.length > 1) {
