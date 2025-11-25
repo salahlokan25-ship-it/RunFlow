@@ -1,19 +1,18 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { router } from 'expo-router';
 import { signUp } from '../../src/services/AuthService';
 import { THEME } from '../../src/theme';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function SignupScreen() {
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!email || !password || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -23,15 +22,9 @@ export default function SignupScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
-    }
-
     setLoading(true);
     try {
-      await signUp(email, password, name);
-      Alert.alert('Success', 'Account created successfully!');
+      await signUp(email, password);
       router.replace('/(tabs)/');
     } catch (error: any) {
       Alert.alert('Signup Failed', error.message);
@@ -43,22 +36,16 @@ export default function SignupScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={THEME.colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join RunFlow today</Text>
+        <Image
+          source={require('../../assets/splash-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.title}>RunFlow</Text>
+        <Text style={styles.subtitle}>Start your running journey</Text>
       </View>
 
       <View style={styles.form}>
-        <TextInput
-          style={styles.input}
-          placeholder="Full Name"
-          placeholderTextColor={THEME.colors.textSecondary}
-          value={name}
-          onChangeText={setName}
-        />
-
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -116,24 +103,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: THEME.colors.background,
+    justifyContent: 'center',
     padding: 20,
-    paddingTop: 60,
   },
   header: {
-    marginBottom: 32,
+    alignItems: 'center',
+    marginBottom: 48,
   },
-  backButton: {
+  logo: {
+    width: 80,
+    height: 80,
     marginBottom: 16,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: THEME.colors.text,
-    marginBottom: 8,
+    marginTop: 8,
   },
   subtitle: {
     fontSize: 14,
     color: THEME.colors.textSecondary,
+    marginTop: 8,
   },
   form: {
     width: '100%',

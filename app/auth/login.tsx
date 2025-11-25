@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { router } from 'expo-router';
 import { signIn } from '../../src/services/AuthService';
 import { THEME } from '../../src/theme';
@@ -30,7 +30,11 @@ export default function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="fitness" size={64} color={THEME.colors.primary} />
+        <Image
+          source={require('../../assets/splash-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>RunFlow</Text>
         <Text style={styles.subtitle}>Track your runs, reach your goals</Text>
       </View>
@@ -91,11 +95,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 48,
   },
+  logo: {
+    width: 80,
+    height: 80,
+    marginBottom: 16,
+  },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: THEME.colors.text,
-    marginTop: 16,
+    marginTop: 8,
   },
   subtitle: {
     fontSize: 14,

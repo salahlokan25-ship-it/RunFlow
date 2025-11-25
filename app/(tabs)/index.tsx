@@ -34,13 +34,25 @@ export default function StartScreen() {
   const [showRoutesModal, setShowRoutesModal] = useState(false);
   const [showAICoachModal, setShowAICoachModal] = useState(false);
   const [showMusicModal, setShowMusicModal] = useState(false);
-
+  const [showActivityModal, setShowActivityModal] = useState(false);
+  
   // Data State
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
   const [goal, setGoal] = useState<{ type: 'distance' | 'duration' | 'none', value: number }>({ type: 'none', value: 0 });
   const [aiCoachEnabled, setAiCoachEnabled] = useState(true);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
+  const [activityType, setActivityType] = useState('Running');
+
+  const activities = [
+    'Running', 'Walking', 'Cycling', 'Hiking', 'Treadmill', 'Trail Running',
+    'Aerobics', 'Climbing', 'Cross Trainer', 'Cross-Country Skiing', 'Ergometer',
+    'Football', 'Gardening', 'Golfing', 'Gymnastics', 'Handbike', 'Ice Skating',
+    'Inline Skating', 'Longboarding', 'Martial Arts', 'Mountain Biking', 'Nordic Walking',
+    'Horse Riding', 'Rowing Machine', 'Scooter', 'Ski Touring', 'Skiing', 'Sledging',
+    'Snowboarding', 'Swimming', 'Tennis', 'Volleyball', 'Walking the Dog', 'Wheelchair',
+    'Workout', 'Yoga', 'Zumba'
+  ];
 
   useEffect(() => {
     loadRoutes();
@@ -70,11 +82,12 @@ export default function StartScreen() {
           splits,
           elevationGain,
           elevationLoss,
+          activityType,
         });
-        Alert.alert('Run Saved', 'Your run has been saved!');
+        Alert.alert('Activity Saved', `Your ${activityType} session has been saved!`);
       } catch (e) {
         console.error(e);
-        Alert.alert('Error', 'Failed to save run.');
+        Alert.alert('Error', 'Failed to save activity.');
       }
     }
   };
@@ -97,6 +110,37 @@ export default function StartScreen() {
   };
 
   // --- Modals ---
+
+  const ActivityModal = () => (
+    <Modal visible={showActivityModal} animationType="slide" transparent={true} onRequestClose={() => setShowActivityModal(false)}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+          <Text style={styles.modalTitle}>Choose Activity</Text>
+          <FlatList
+            data={activities}
+            keyExtractor={(item) => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity 
+                style={[styles.modalOption, item === activityType && { backgroundColor: '#f9731620' }]} 
+                onPress={() => { setActivityType(item); setShowActivityModal(false); }}
+              >
+                <Ionicons 
+                  name={item === 'Running' ? 'walk' : item === 'Cycling' ? 'bicycle' : 'fitness'} 
+                  size={24} 
+                  color={item === activityType ? "#f97316" : THEME.colors.text} 
+                />
+                <Text style={[styles.modalOptionText, item === activityType && { color: "#f97316", fontWeight: 'bold' }]}>{item}</Text>
+                {item === activityType && <Ionicons name="checkmark" size={20} color="#f97316" />}
+              </TouchableOpacity>
+            )}
+          />
+          <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowActivityModal(false)}>
+            <Text style={styles.modalCloseText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   const GoalModal = () => (
     <Modal visible={showGoalModal} animationType="slide" transparent={true} onRequestClose={() => setShowGoalModal(false)}>
@@ -207,7 +251,13 @@ export default function StartScreen() {
       >
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.headerTitle}>Start Running</Text>
+            <TouchableOpacity 
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              onPress={() => setShowActivityModal(true)}
+            >
+              <Text style={styles.headerTitle}>{activityType}</Text>
+              <Ionicons name="chevron-down" size={24} color="#f97316" />
+            </TouchableOpacity>
             <View style={styles.weatherRow}>
               <Ionicons name="partly-sunny" size={16} color="#f97316" />
               <Text style={styles.weatherText}>{weather.temp}°C • Partly Cloudy</Text>
@@ -270,13 +320,13 @@ export default function StartScreen() {
               end={{ x: 1, y: 1 }}
             >
               <Ionicons name="play" size={32} color="#fff" />
-              <Text style={styles.startButtonText}>START RUN</Text>
+              <Text style={styles.startButtonText}>START {activityType.toUpperCase()}</Text>
             </LinearGradient>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
             <Ionicons name="stop" size={24} color="#fff" />
-            <Text style={styles.stopButtonText}>STOP RUN</Text>
+            <Text style={styles.stopButtonText}>STOP</Text>
           </TouchableOpacity>
         )}
 
@@ -328,6 +378,7 @@ export default function StartScreen() {
       </ScrollView>
 
       {/* Modals */}
+      <ActivityModal />
       <GoalModal />
       <RoutesModal />
       <AICoachModal />

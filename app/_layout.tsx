@@ -1,31 +1,44 @@
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { initDatabase } from '../src/db';
 import { THEME } from '../src/theme';
 import { View } from 'react-native';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import SplashScreen from './splash';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const [showSplash, setShowSplash] = useState(true);
+  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     initDatabase();
+    // Mark app as ready after a brief delay
+    setTimeout(() => setAppReady(true), 100);
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || !appReady) return;
 
     const inAuthGroup = segments[0] === 'auth';
 
     if (!user && !inAuthGroup) {
       router.replace('/auth/login');
     } else if (user && inAuthGroup) {
-      router.replace('/(tabs)/');
+      // Show splash before navigating to main app after login
+      setShowSplash(true);
+      setTimeout(() => {
+        router.replace('/(tabs)/');
+      }, 100);
     }
-  }, [user, loading, segments]);
+  }, [user, loading, segments, appReady]);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   return (
     <>
