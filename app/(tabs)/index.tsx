@@ -9,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../../src/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import HealthKitService from '../../src/services/HealthKitService';
+import { sendAchievementNotification } from '../../src/services/NotificationService';
 
 export default function StartScreen() {
   const {
@@ -71,7 +73,7 @@ export default function StartScreen() {
     stopTracking();
     if (distance > 0) {
       try {
-        await saveRun({
+        const runData = {
           startTime: Date.now() - duration * 1000,
           endTime: Date.now(),
           duration,
@@ -83,8 +85,31 @@ export default function StartScreen() {
           elevationGain,
           elevationLoss,
           activityType,
+        };
+
+        // Save to local database
+        await saveRun(runData);
+
+        // Try to save to Apple Health
+        const healthSaved = await HealthKitService.saveWorkout({
+          type: activityType,
+          startDate: new Date(runData.startTime),
+          endDate: new Date(runData.endTime),
+          duration: runData.duration,
+          distance: runData.distance,
+          calories: runData.calories,
+          route: currentRunPoints.map(p => ({ latitude: p.latitude, longitude: p.longitude })),
         });
-        Alert.alert('Activity Saved', `Your ${activityType} session has been saved!`);
+
+        // Check for achievements and send notifications
+        if (distance > 5000) {
+          await sendAchievementNotification('5K Milestone!', `You just completed ${(distance / 1000).toFixed(2)} km!`);
+        }
+
+        Alert.alert(
+          'Activity Saved', 
+          `Your ${activityType} session has been saved!${healthSaved ? '\n✓ Synced to Apple Health' : ''}`
+        );
       } catch (e) {
         console.error(e);
         Alert.alert('Error', 'Failed to save activity.');
@@ -422,7 +447,7 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: THEME.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: THEME.colors.text, marginBottom: 20, textAlign: 'center' },
   modalOption: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
-  modalOptionText: { fontSize: 16, color: THEME.colors.text, fontWeight: '500' },
+  modalOptionText: { fontSize: 16, color: THEME.colors.text, fontWeight: '500', flex: 1 },
   modalOptionSubtext: { fontSize: 12, color: THEME.colors.textSecondary },
   modalCloseButton: { marginTop: 24, padding: 16, alignItems: 'center', backgroundColor: THEME.colors.background, borderRadius: 12 },
   modalCloseText: { fontSize: 16, fontWeight: '600', color: THEME.colors.text },

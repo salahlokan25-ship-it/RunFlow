@@ -6,6 +6,7 @@ import { THEME } from '../src/theme';
 import { View } from 'react-native';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import SplashScreen from './splash';
+import { hasCompletedOnboarding } from '../src/services/OnboardingService';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -13,6 +14,7 @@ function RootLayoutNav() {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
   const [appReady, setAppReady] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(false);
 
   useEffect(() => {
     initDatabase();
@@ -23,20 +25,40 @@ function RootLayoutNav() {
   useEffect(() => {
     if (loading || !appReady) return;
 
-    const inAuthGroup = segments[0] === 'auth';
+    const checkAndNavigate = async () => {
+      const inAuthGroup = segments[0] === 'auth';
+      const inOnboardingGroup = segments[0] === 'onboarding';
 
-    if (!user && !inAuthGroup) {
-      router.replace('/auth/login');
-    } else if (user && inAuthGroup) {
-      // Show splash before navigating to main app after login
-      setShowSplash(true);
-      setTimeout(() => {
-        router.replace('/(tabs)/');
-      }, 100);
-    }
+      if (!user && !inAuthGroup) {
+        router.replace('/auth/login');
+      } else if (user && inAuthGroup) {
+        // User just logged in, check onboarding status
+        setCheckingOnboarding(true);
+        const completed = await hasCompletedOnboarding(user.uid);
+        setCheckingOnboarding(false);
+
+        if (!completed) {
+          router.replace('/onboarding/');
+        } else {
+          // Show splash before navigating to main app
+          setShowSplash(true);
+          setTimeout(() => {
+            router.replace('/(tabs)/');
+          }, 100);
+        }
+      } else if (user && !inAuthGroup && !inOnboardingGroup) {
+        // Check if user needs onboarding when navigating within app
+        const completed = await hasCompletedOnboarding(user.uid);
+        if (!completed && segments[0] !== 'onboarding') {
+          router.replace('/onboarding/');
+        }
+      }
+    };
+
+    checkAndNavigate();
   }, [user, loading, segments, appReady]);
 
-  if (showSplash) {
+  if (showSplash && !checkingOnboarding) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;
   }
 
@@ -57,6 +79,7 @@ function RootLayoutNav() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="auth" options={{ headerShown: false }} />
+          <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         </Stack>
       </View>
     </>

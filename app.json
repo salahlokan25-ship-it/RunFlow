@@ -14,8 +14,21 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.runflow.app",
       "config": {
         "googleMapsApiKey": "AIzaSyDMtb3jPziMeVjTckpARxwU9VvuewuHCHc"
+      },
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "RunFlow needs access to read your health data to provide personalized insights and track your fitness progress",
+        "NSHealthUpdateUsageDescription": "RunFlow needs access to save your workouts to Apple Health",
+        "UIBackgroundModes": [
+          "remote-notification",
+          "location"
+        ]
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.access": []
       }
     },
     "android": {
@@ -29,14 +42,30 @@
         }
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.POST_NOTIFICATIONS"
+      ],
+      "package": "com.runflow.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "notification": {
+      "icon": "./assets/icon.png",
+      "color": "#f97316"
+    },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#f97316"
+        }
+      ]
     ]
   }
 }

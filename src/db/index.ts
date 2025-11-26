@@ -15,7 +15,8 @@ export const initDatabase = () => {
       pointsJson TEXT,
       splitsJson TEXT,
       elevationGain REAL,
-      elevationLoss REAL
+      elevationLoss REAL,
+      activityType TEXT
     );
 
     CREATE TABLE IF NOT EXISTS user_training_plan (
@@ -71,6 +72,19 @@ export const initDatabase = () => {
       notes TEXT,
       createdAt INTEGER
     );
+
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id TEXT PRIMARY KEY,
+      userId TEXT,
+      experienceLevel TEXT,
+      activityFrequency TEXT,
+      primaryGoal TEXT,
+      targetDistance TEXT,
+      preferredActivities TEXT,
+      notificationPreferences TEXT,
+      onboardingCompleted INTEGER,
+      createdAt INTEGER
+    );
   `);
 
   // Migrations: Try to add columns if they don't exist
@@ -78,7 +92,8 @@ export const initDatabase = () => {
     'ALTER TABLE runs ADD COLUMN splitsJson TEXT',
     'ALTER TABLE runs ADD COLUMN pointsJson TEXT',
     'ALTER TABLE runs ADD COLUMN elevationGain REAL',
-    'ALTER TABLE runs ADD COLUMN elevationLoss REAL'
+    'ALTER TABLE runs ADD COLUMN elevationLoss REAL',
+    'ALTER TABLE runs ADD COLUMN activityType TEXT'
   ];
 
   migrations.forEach(query => {
