@@ -21,14 +21,7 @@
       "infoPlist": {
         "NSHealthShareUsageDescription": "RunFlow needs access to read your health data to provide personalized insights and track your fitness progress",
         "NSHealthUpdateUsageDescription": "RunFlow needs access to save your workouts to Apple Health",
-        "UIBackgroundModes": [
-          "remote-notification",
-          "location"
-        ]
-      },
-      "entitlements": {
-        "com.apple.developer.healthkit": true,
-        "com.apple.developer.healthkit.access": []
+        "UIBackgroundModes": ["remote-notification", "location"]
       }
     },
     "android": {
@@ -44,10 +37,8 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.POST_NOTIFICATIONS",
         "android.permission.POST_NOTIFICATIONS"
-      ],
-      "package": "com.runflow.app"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -64,6 +55,12 @@
         {
           "icon": "./assets/icon.png",
           "color": "#f97316"
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "isClinicalDataEnabled": false
         }
       ]
     ]

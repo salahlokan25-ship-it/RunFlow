@@ -68,13 +68,9 @@ export default function SettingsScreen() {
       const granted = await HealthKitService.requestPermissions();
       if (granted) {
         setHealthSyncEnabled(true);
-        Alert.alert(
-          'Health Sync Ready', 
-          'Apple Health integration is configured!\n\nNote: Full syncing requires installing react-native-health package and rebuilding the app. Your workouts will be logged for now.',
-          [{ text: 'Got it', style: 'default' }]
-        );
+        Alert.alert('Success', 'Apple Health sync enabled! Your workouts will now be saved to Health.');
       } else {
-        Alert.alert('Setup Issue', 'Could not initialize Health sync. Please try again.');
+        Alert.alert('Permission Denied', 'Please enable Health access in your device settings.');
       }
     } else {
       setHealthSyncEnabled(false);
@@ -165,7 +161,7 @@ export default function SettingsScreen() {
             {healthSyncEnabled && (
               <View style={styles.infoBox}>
                 <Ionicons name="information-circle" size={16} color="#f97316" />
-                <Text style={styles.infoText}>Health sync is enabled. Workouts will be logged.</Text>
+                <Text style={styles.infoText}>Your workouts will be automatically saved to Apple Health</Text>
               </View>
             )}
           </View>

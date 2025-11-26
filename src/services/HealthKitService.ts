@@ -1,12 +1,26 @@
+import AppleHealthKit, {
+  HealthValue,
+  HealthKitPermissions,
+  HealthActivityOptions,
+} from 'react-native-health';
 import { Platform } from 'react-native';
 
-// Note: Full Apple Health integration requires react-native-health or expo-apple-healthkit
-// This is a placeholder service that gracefully handles when the package isn't installed
-
-export interface HealthKitPermissions {
-  read: string[];
-  write: string[];
-}
+// Define permissions
+const permissions = {
+  permissions: {
+    read: [
+      AppleHealthKit.Constants.Permissions.HeartRate,
+      AppleHealthKit.Constants.Permissions.Steps,
+      AppleHealthKit.Constants.Permissions.DistanceWalkingRunning,
+      AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
+    ],
+    write: [
+      AppleHealthKit.Constants.Permissions.Workout,
+      AppleHealthKit.Constants.Permissions.DistanceWalkingRunning,
+      AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
+    ],
+  },
+} as HealthKitPermissions;
 
 export interface WorkoutData {
   type: string;
@@ -29,59 +43,50 @@ class HealthKitService {
 
   async requestPermissions(): Promise<boolean> {
     if (!this.isAvailable) {
-      console.log('HealthKit is only available on iOS');
       return false;
     }
 
-    try {
-      // For now, just mark as initialized without actual HealthKit
-      // To enable full HealthKit:
-      // 1. Install: npx expo install react-native-health
-      // 2. Add to app.json plugins
-      // 3. Rebuild with: npx expo prebuild
-      
-      console.log('HealthKit permissions would be requested here');
-      console.log('To enable full Apple Health integration:');
-      console.log('1. Install react-native-health package');
-      console.log('2. Rebuild the app with expo prebuild');
-      
-      this.isInitialized = true;
-      return true;
-    } catch (error) {
-      console.error('Error requesting HealthKit permissions:', error);
-      return false;
-    }
+    return new Promise((resolve) => {
+      AppleHealthKit.initHealthKit(permissions, (error: string) => {
+        if (error) {
+          console.log('[HealthKitService] Error initializing HealthKit:', error);
+          resolve(false);
+          return;
+        }
+        console.log('[HealthKitService] HealthKit initialized successfully');
+        this.isInitialized = true;
+        resolve(true);
+      });
+    });
   }
 
   async saveWorkout(workout: WorkoutData): Promise<boolean> {
     if (!this.isAvailable || !this.isInitialized) {
-      console.log('HealthKit not available or not initialized');
+      console.log('[HealthKitService] Not available or not initialized');
       return false;
     }
 
-    try {
-      // Placeholder: In production with react-native-health installed:
-      // const options = {
-      //   type: 'Running',
-      //   startDate: workout.startDate.toISOString(),
-      //   endDate: workout.endDate.toISOString(),
-      //   energyBurned: workout.calories,
-      //   distance: workout.distance,
-      // };
-      // await AppleHealthKit.saveWorkout(options);
+    const options: HealthActivityOptions = {
+      type: 'Running', // Default to Running, map other types if needed
+      startDate: workout.startDate.toISOString(),
+      endDate: workout.endDate.toISOString(),
+      energyBurned: workout.calories,
+      energyBurnedUnit: 'kcal',
+      distance: workout.distance,
+      distanceUnit: 'meter',
+    };
 
-      console.log('Workout would be saved to HealthKit:', {
-        type: workout.type,
-        distance: `${(workout.distance / 1000).toFixed(2)} km`,
-        duration: `${Math.floor(workout.duration / 60)} min`,
-        calories: `${workout.calories} kcal`
+    return new Promise((resolve) => {
+      AppleHealthKit.saveWorkout(options, (error: Object, result: Object) => {
+        if (error) {
+          console.log('[HealthKitService] Error saving workout:', error);
+          resolve(false);
+          return;
+        }
+        console.log('[HealthKitService] Workout saved successfully:', result);
+        resolve(true);
       });
-
-      return true;
-    } catch (error) {
-      console.error('Error saving workout to HealthKit:', error);
-      return false;
-    }
+    });
   }
 
   async getStepsToday(): Promise<number> {
@@ -89,48 +94,20 @@ class HealthKitService {
       return 0;
     }
 
-    try {
-      // Placeholder: In production, fetch steps from HealthKit
-      console.log('Steps would be fetched from HealthKit');
-      return 0;
-    } catch (error) {
-      console.error('Error getting steps from HealthKit:', error);
-      return 0;
-    }
-  }
+    const options = {
+      startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString(),
+    };
 
-  async getHeartRateData(startDate: Date, endDate: Date): Promise<number[]> {
-    if (!this.isAvailable || !this.isInitialized) {
-      return [];
-    }
-
-    try {
-      // Placeholder: In production, fetch heart rate from HealthKit
-      console.log('Heart rate would be fetched from HealthKit');
-      return [];
-    } catch (error) {
-      console.error('Error getting heart rate from HealthKit:', error);
-      return [];
-    }
-  }
-
-  async getRecentWorkouts(limit: number = 10): Promise<any[]> {
-    if (!this.isAvailable || !this.isInitialized) {
-      return [];
-    }
-
-    try {
-      // Placeholder: In production, fetch workouts from HealthKit
-      console.log('Recent workouts would be fetched from HealthKit');
-      return [];
-    } catch (error) {
-      console.error('Error getting workouts from HealthKit:', error);
-      return [];
-    }
-  }
-
-  isHealthKitAvailable(): boolean {
-    return this.isAvailable;
+    return new Promise((resolve) => {
+      AppleHealthKit.getStepCount(options, (err: Object, results: HealthValue) => {
+        if (err) {
+          console.log('[HealthKitService] Error getting steps:', err);
+          resolve(0);
+          return;
+        }
+        resolve(results.value);
+      });
+    });
   }
 }
 
