@@ -1,182 +1,407 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BarChart } from 'react-native-gifted-charts';
+import { TrendingUp, Clock, Award, Target } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
+import { THEME } from '../../src/theme';
 import { getAllRuns } from '../../src/services/RunService';
 import { Run } from '../../src/types';
-import { Ionicons } from '@expo/vector-icons';
-import { THEME } from '../../src/theme';
-import { LinearGradient } from 'expo-linear-gradient';
-
-const { width } = Dimensions.get('window');
+import { formatDistance, formatDuration, formatPace } from '../../src/utils/formatters';
 
 export default function StatisticsScreen() {
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'all'>('week');
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalDistance: 0,
+    totalTime: 0,
+    avgPace: 0,
+    runCount: 0,
+    fastest5k: 0,
+    longestRun: 0,
+    bestPace: 0,
+  });
 
-  useEffect(() => {
-    loadRuns();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadStats();
+    }, [])
+  );
 
-  const loadRuns = async () => {
-    const allRuns = await getAllRuns();
-    setRuns(allRuns);
+  const loadStats = async () => {
+    try {
+      const runs = await getAllRuns();
+
+      if (runs.length === 0) {
+        setStats({
+          totalDistance: 0,
+          totalTime: 0,
+          avgPace: 0,
+          runCount: 0,
+          fastest5k: 0,
+          longestRun: 0,
+          bestPace: 0,
+        });
+        return;
+      }
+
+      const totalDistance = runs.reduce((acc, run) => acc + run.distance, 0);
+      const totalTime = runs.reduce((acc, run) => acc + run.duration, 0);
+      const avgPace = runs.reduce((acc, run) => acc + run.avgPace, 0) / runs.length;
+
+      // Personal Bests
+      const longestRun = Math.max(...runs.map(r => r.distance));
+      const bestPace = Math.min(...runs.map(r => r.avgPace));
+
+      // Fastest 5K logic (simplified: best pace * 5km)
+      // In a real app, you'd scan split data for the fastest contiguous 5k segment
+      const runsOver5k = runs.filter(r => r.distance >= 5000);
+      const fastest5k = runsOver5k.length > 0
+        ? Math.min(...runsOver5k.map(r => r.duration * (5000 / r.distance)))
+        : 0;
+
+      setStats({
+        totalDistance,
+        totalTime,
+        avgPace,
+        runCount: runs.length,
+        fastest5k,
+        longestRun,
+        bestPace,
+      });
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getFilteredRuns = () => {
-    const now = Date.now();
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const monthAgo = now - 30 * 24 * 60 * 60 * 1000;
+  const barData = [
+    { value: 65, label: 'Mon' },
+    { value: 45, label: 'Tue' },
+    { value: 75, label: 'Wed' },
+    { value: 55, label: 'Thu' },
+    { value: 85, label: 'Fri' },
+    { value: 70, label: 'Sat' },
+    { value: 95, label: 'Sun' },
+  ];
 
-    if (selectedPeriod === 'week') return runs.filter(r => r.startTime >= weekAgo);
-    if (selectedPeriod === 'month') return runs.filter(r => r.startTime >= monthAgo);
-    return runs;
-  };
-
-  const filteredRuns = getFilteredRuns();
-  const totalDistance = filteredRuns.reduce((sum, r) => sum + r.distance, 0) / 1000;
-  const avgPace = filteredRuns.length > 0 ? filteredRuns.reduce((sum, r) => sum + r.pace, 0) / filteredRuns.length : 0;
-  const totalCalories = filteredRuns.reduce((sum, r) => sum + r.calories, 0);
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={THEME.colors.primary} />
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Statistics</Text>
+        <Text style={styles.headerTitle}>Performance</Text>
+        <Text style={styles.headerSubtitle}>Track your progress</Text>
       </View>
 
-      <View style={styles.tabs}>
-        {(['week', 'month', 'all'] as const).map(period => (
-          <TouchableOpacity
-            key={period}
-            style={[styles.tab, selectedPeriod === period && styles.tabActive]}
-            onPress={() => setSelectedPeriod(period)}
-          >
-            <Text style={[styles.tabText, selectedPeriod === period && styles.tabTextActive]}>
-              {period === 'week' ? 'Weekly' : period === 'month' ? 'Monthly' : 'All Time'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
-        {/* Overview Card */}
+      {/* Key Metrics */}
+      <View style={styles.metricsGrid}>
         <LinearGradient
-          colors={['#f97316', '#ea580c']}
-          style={styles.overviewCard}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          colors={[THEME.colors.primary, '#C2410C']}
+          style={styles.metricCardPrimary}
         >
-          <Text style={styles.overviewTitle}>
-            {selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : 'All Time'}
-          </Text>
-          <View style={styles.overviewStats}>
-            <View style={styles.overviewStat}>
-              <Text style={styles.overviewValue}>{totalDistance.toFixed(1)}</Text>
-              <Text style={styles.overviewLabel}>km</Text>
-            </View>
-            <View style={styles.overviewDivider} />
-            <View style={styles.overviewStat}>
-              <Text style={styles.overviewValue}>{avgPace.toFixed(2)}</Text>
-              <Text style={styles.overviewLabel}>avg pace</Text>
-            </View>
-            <View style={styles.overviewDivider} />
-            <View style={styles.overviewStat}>
-              <Text style={styles.overviewValue}>{totalCalories}</Text>
-              <Text style={styles.overviewLabel}>calories</Text>
-            </View>
+          <TrendingUp size={24} color="#FED7AA" style={styles.metricIcon} />
+          <Text style={styles.metricValuePrimary}>{formatDistance(stats.totalDistance)}</Text>
+          <Text style={styles.metricLabelPrimary}>Total Distance (km)</Text>
+          <View style={styles.metricBadgePrimary}>
+            <Text style={styles.metricBadgeTextPrimary}>{stats.runCount} runs total</Text>
           </View>
         </LinearGradient>
 
-        {/* Chart Area */}
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Pace Trend</Text>
-          <View style={styles.chartPlaceholder}>
-            <Ionicons name="trending-down" size={32} color="#3b82f6" />
-            <Text style={styles.chartText}>Line chart coming soon</Text>
+        <View style={styles.metricCardSecondary}>
+          <Clock size={24} color={THEME.colors.primaryHighlight} style={styles.metricIcon} />
+          <Text style={styles.metricValueSecondary}>{formatDuration(stats.totalTime)}</Text>
+          <Text style={styles.metricLabelSecondary}>Total Time</Text>
+        </View>
+      </View>
+
+      {/* Performance Chart */}
+      <View style={styles.chartCard}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Distance Trend</Text>
+          <View style={styles.dropdown}>
+            <Text style={styles.dropdownText}>Last 7 days</Text>
           </View>
         </View>
 
-        <View style={styles.chartCard}>
-          <Text style={styles.chartTitle}>Distance per Run</Text>
-          <View style={styles.chartPlaceholder}>
-            <Ionicons name="bar-chart" size={32} color="#f97316" />
-            <Text style={styles.chartText}>Bar chart coming soon</Text>
+        <BarChart
+          data={barData}
+          barWidth={22}
+          spacing={14}
+          roundedTop
+          roundedBottom
+          hideRules
+          xAxisThickness={0}
+          yAxisThickness={0}
+          yAxisTextStyle={{ color: THEME.colors.textTertiary }}
+          noOfSections={3}
+          maxValue={100}
+          frontColor={THEME.colors.primaryHighlight}
+          gradientColor={THEME.colors.primary}
+          showGradient
+          xAxisLabelTextStyle={{ color: THEME.colors.textTertiary, fontSize: 10 }}
+        />
+      </View>
+
+      {/* Personal Bests */}
+      <View style={styles.pbCard}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardTitleRow}>
+            <Award size={20} color={THEME.colors.primaryHighlight} />
+            <Text style={styles.cardTitle}>Personal Bests</Text>
           </View>
         </View>
 
-        {/* AI Insights */}
-        <View style={styles.insightsCard}>
-          <View style={styles.insightsHeader}>
-            <Ionicons name="bulb" size={20} color="#f97316" />
-            <Text style={styles.insightsTitle}>AI Insights</Text>
+        <View style={styles.pbList}>
+          <View style={styles.pbItem}>
+            <View>
+              <Text style={styles.pbLabel}>Fastest 5K</Text>
+              <Text style={styles.pbValue}>{stats.fastest5k > 0 ? formatDuration(stats.fastest5k) : '--:--'}</Text>
+            </View>
           </View>
-          <View style={styles.insightItem}>
-            <Ionicons name="trending-up" size={16} color="#10b981" />
-            <Text style={styles.insightText}>Your pace improved 8% vs last week</Text>
+
+          <View style={styles.pbItem}>
+            <View>
+              <Text style={styles.pbLabel}>Longest Run</Text>
+              <Text style={styles.pbValue}>{formatDistance(stats.longestRun)} km</Text>
+            </View>
           </View>
-          <View style={styles.insightItem}>
-            <Ionicons name="sunny" size={16} color="#f59e0b" />
-            <Text style={styles.insightText}>You run faster on cooler days</Text>
+
+          <View style={styles.pbItem}>
+            <View>
+              <Text style={styles.pbLabel}>Best Pace</Text>
+              <Text style={styles.pbValue}>{stats.bestPace > 0 ? formatPace(stats.bestPace) : '--:--'} /km</Text>
+            </View>
           </View>
-          <View style={styles.insightItem}>
-            <Ionicons name="time" size={16} color="#3b82f6" />
-            <Text style={styles.insightText}>Morning runs show 12% better performance</Text>
-          </View>
+        </View>
+      </View>
+
+      {/* Monthly Goals */}
+      <View style={styles.goalCard}>
+        <View style={styles.cardTitleRow}>
+          <Target size={20} color={THEME.colors.primaryHighlight} />
+          <Text style={styles.cardTitle}>Monthly Goal</Text>
         </View>
 
-        {/* Achievement Badges */}
-        <View style={styles.badgesSection}>
-          <Text style={styles.sectionTitle}>Achievement Badges</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.badgesScroll}>
-            {[
-              { icon: 'flame', color: '#ef4444', label: '7-Day Streak' },
-              { icon: 'trophy', color: '#f59e0b', label: '50km Month' },
-              { icon: 'star', color: '#eab308', label: 'Personal Best' },
-              { icon: 'rocket', color: '#8b5cf6', label: 'Speed Demon' },
-            ].map((badge, index) => (
-              <View key={index} style={styles.badgeCard}>
-                <View style={[styles.badgeIcon, { backgroundColor: badge.color + '20' }]}>
-                  <Ionicons name={badge.icon as any} size={24} color={badge.color} />
-                </View>
-                <Text style={styles.badgeLabel}>{badge.label}</Text>
-              </View>
-            ))}
-          </ScrollView>
+        <View style={styles.goalContent}>
+          <View style={styles.goalStats}>
+            <Text style={styles.goalProgress}>{formatDistance(stats.totalDistance)} km / 200 km</Text>
+            <Text style={styles.goalPercentage}>{Math.min(100, Math.round((stats.totalDistance / 200000) * 100))}%</Text>
+          </View>
+
+          <View style={styles.progressBarBg}>
+            <LinearGradient
+              colors={[THEME.colors.primary, THEME.colors.primaryHighlight]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.progressBarFill, { width: `${Math.min(100, (stats.totalDistance / 200000) * 100)}%` }]}
+            />
+          </View>
+
+          <Text style={styles.goalRemaining}>
+            {Math.max(0, 200 - (stats.totalDistance / 1000)).toFixed(1)} km to reach your goal
+          </Text>
         </View>
-      </ScrollView>
-    </View>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.colors.background },
-  header: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, backgroundColor: THEME.colors.surface, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: THEME.colors.text },
-  tabs: { flexDirection: 'row', backgroundColor: THEME.colors.surface, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#f97316' },
-  tabText: { fontSize: 14, fontWeight: '600', color: THEME.colors.textSecondary },
-  tabTextActive: { color: '#f97316' },
-  scrollView: { flex: 1 },
-  content: { padding: 16 },
-  overviewCard: { borderRadius: 20, padding: 24, marginBottom: 16 },
-  overviewTitle: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 16, opacity: 0.9 },
-  overviewStats: { flexDirection: 'row' },
-  overviewStat: { flex: 1, alignItems: 'center' },
-  overviewValue: { fontSize: 32, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
-  overviewLabel: { fontSize: 12, color: '#fff', opacity: 0.8 },
-  overviewDivider: { width: 1, backgroundColor: '#fff', opacity: 0.3, marginHorizontal: 12 },
-  chartCard: { backgroundColor: THEME.colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: THEME.colors.border },
-  chartTitle: { fontSize: 16, fontWeight: 'bold', color: THEME.colors.text, marginBottom: 12 },
-  chartPlaceholder: { height: 150, justifyContent: 'center', alignItems: 'center', backgroundColor: THEME.colors.background, borderRadius: 12 },
-  chartText: { fontSize: 13, color: THEME.colors.textSecondary, marginTop: 8 },
-  insightsCard: { backgroundColor: '#f973161a', borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: '#f9731640' },
-  insightsHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  insightsTitle: { fontSize: 16, fontWeight: 'bold', color: THEME.colors.text },
-  insightItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  insightText: { fontSize: 14, color: THEME.colors.text, flex: 1 },
-  badgesSection: { marginBottom: 32 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: THEME.colors.text, marginBottom: 12 },
-  badgesScroll: { marginHorizontal: -16, paddingHorizontal: 16 },
-  badgeCard: { alignItems: 'center', marginRight: 16, width: 100 },
-  badgeIcon: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  badgeLabel: { fontSize: 12, color: THEME.colors.text, textAlign: 'center', fontWeight: '500' },
+  container: {
+    flex: 1,
+    backgroundColor: THEME.colors.background,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 100,
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: THEME.colors.textSecondary,
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 24,
+  },
+  metricCardPrimary: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  metricCardSecondary: {
+    flex: 1,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)', // Gray 800
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  metricIcon: {
+    marginBottom: 12,
+  },
+  metricValuePrimary: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginBottom: 4,
+  },
+  metricLabelPrimary: {
+    fontSize: 12,
+    color: '#FED7AA', // Orange 200
+  },
+  metricBadgePrimary: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginTop: 8,
+  },
+  metricBadgeTextPrimary: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '600',
+  },
+  metricValueSecondary: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 4,
+  },
+  metricLabelSecondary: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+  },
+  chartCard: {
+    backgroundColor: THEME.colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+  },
+  dropdown: {
+    backgroundColor: THEME.colors.surfaceHighlight,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  dropdownText: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+  },
+  pbCard: {
+    backgroundColor: 'rgba(234, 88, 12, 0.1)', // Orange tint
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.3)',
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  pbList: {
+    gap: 12,
+  },
+  pbItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(17, 24, 39, 0.5)', // Gray 900 with opacity
+    padding: 12,
+    borderRadius: 12,
+  },
+  pbLabel: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    marginBottom: 2,
+  },
+  pbValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+  },
+  goalCard: {
+    backgroundColor: THEME.colors.surface,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  goalContent: {
+    gap: 12,
+  },
+  goalStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  goalProgress: {
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
+  },
+  goalPercentage: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: THEME.colors.primaryHighlight,
+  },
+  progressBarBg: {
+    height: 12,
+    backgroundColor: THEME.colors.surfaceHighlight,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 6,
+  },
+  goalRemaining: {
+    fontSize: 12,
+    color: THEME.colors.textTertiary,
+    textAlign: 'center',
+  },
 });

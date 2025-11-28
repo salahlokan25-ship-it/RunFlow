@@ -1,174 +1,265 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, FlatList, Alert } from 'react-native';
-import { router } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { Activity, Route, Timer, Zap } from 'lucide-react-native';
+import { useFocusEffect } from 'expo-router';
+import { THEME } from '../../src/theme';
 import { getAllRuns } from '../../src/services/RunService';
 import { Run } from '../../src/types';
-import { Ionicons } from '@expo/vector-icons';
-import { THEME } from '../../src/theme';
+import { formatDistance, formatDuration, formatPace, formatDate, formatTime } from '../../src/utils/formatters';
 
 export default function DiaryScreen() {
+  const [filter, setFilter] = useState<'All' | 'Runs' | 'Races'>('All');
   const [runs, setRuns] = useState<Run[]>([]);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadRuns();
-  }, []);
-
-  const loadRuns = async () => {
-    const allRuns = await getAllRuns();
-    setRuns(allRuns);
-  };
-
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatDistance = (meters: number) => {
-    return (meters / 1000).toFixed(2);
-  };
-
-  const formatPace = (paceValue: number) => {
-    const mins = Math.floor(paceValue);
-    const secs = Math.round((paceValue - mins) * 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatDate = (timestamp: number) => {
-    const date = new Date(timestamp);
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${days[date.getDay()]}, ${date.getDate()} ${monthNames[date.getMonth()]}`;
-  };
-
-  const renderRunCard = ({ item }: { item: Run }) => (
-    <TouchableOpacity
-      style={styles.runCard}
-      onPress={() => router.push(`/run/${item.id}`)}
-    >
-      <View style={styles.runCardHeader}>
-        <Text style={styles.runDate}>{formatDate(item.startTime)}</Text>
-        <Ionicons name="chevron-forward" size={20} color={THEME.colors.textSecondary} />
-      </View>
-
-      <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Ionicons name="navigate" size={16} color="#f97316" />
-          <Text style={styles.statText}>{formatDistance(item.distance)} km</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Ionicons name="time" size={16} color="#3b82f6" />
-          <Text style={styles.statText}>{formatDuration(item.duration)}</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Ionicons name="speedometer" size={16} color="#10b981" />
-          <Text style={styles.statText}>{formatPace(item.pace)}/km</Text>
-        </View>
-      </View>
-
-      <View style={styles.miniMapPlaceholder}>
-        <Ionicons name="map" size={24} color={THEME.colors.textSecondary} />
-        <Text style={styles.miniMapText}>Route Preview</Text>
-      </View>
-
-      <View style={styles.runCardFooter}>
-        <View style={styles.footerItem}>
-          <Ionicons name="flame" size={14} color="#ef4444" />
-          <Text style={styles.footerText}>{item.calories} cal</Text>
-        </View>
-        <View style={styles.footerItem}>
-          <Ionicons name="heart" size={14} color="#ec4899" />
-          <Text style={styles.footerText}>-- bpm</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
+  useFocusEffect(
+    useCallback(() => {
+      loadRuns();
+    }, [])
   );
 
+  const loadRuns = async () => {
+    try {
+      const allRuns = await getAllRuns();
+      setRuns(allRuns);
+    } catch (error) {
+      console.error('Failed to load runs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // For now, we assume all activities are "Runs" as we don't distinguish yet
+  const filteredRuns = filter === 'All' ? runs : runs;
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color={THEME.colors.primary} />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Diary</Text>
-        <TouchableOpacity onPress={() => Alert.alert('Filter', 'Filter options coming soon!')}>
-          <Ionicons name="filter" size={24} color={THEME.colors.text} />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Activity Diary</Text>
+        <Text style={styles.headerSubtitle}>Your running history</Text>
       </View>
 
-      {/* Month Selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.monthSelector}
-        contentContainerStyle={styles.monthSelectorContent}
-      >
-        {months.map((month, index) => (
+      {/* Filter Tabs */}
+      <View style={styles.filterContainer}>
+        {(['All', 'Runs', 'Races'] as const).map((tab) => (
           <TouchableOpacity
-            key={index}
-            style={[
-              styles.monthButton,
-              selectedMonth === index && styles.monthButtonActive,
-            ]}
-            onPress={() => setSelectedMonth(index)}
+            key={tab}
+            style={[styles.filterTab, filter === tab && styles.filterTabActive]}
+            onPress={() => setFilter(tab)}
           >
-            <Text
-              style={[
-                styles.monthText,
-                selectedMonth === index && styles.monthTextActive,
-              ]}
-            >
-              {month}
-            </Text>
+            <Text style={[styles.filterText, filter === tab && styles.filterTextActive]}>{tab}</Text>
           </TouchableOpacity>
         ))}
-      </ScrollView>
+      </View>
 
-      {/* Run List */}
-      <FlatList
-        data={runs}
-        renderItem={renderRunCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.runList}
-        ListEmptyComponent={
+      {/* Activities List */}
+      <View style={styles.activitiesList}>
+        {filteredRuns.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="footsteps" size={64} color={THEME.colors.textSecondary} />
-            <Text style={styles.emptyText}>No runs yet</Text>
-            <Text style={styles.emptySubtext}>Start your first run to see it here!</Text>
+            <Text style={styles.emptyStateText}>No runs recorded yet.</Text>
+            <Text style={styles.emptyStateSubtext}>Go to the Training tab to start your first run!</Text>
           </View>
-        }
-      />
-    </View>
+        ) : (
+          filteredRuns.map((run) => (
+            <TouchableOpacity key={run.id} style={styles.activityCard}>
+              <View style={styles.cardHeader}>
+                <View style={styles.activityInfo}>
+                  <View style={styles.iconBox}>
+                    <Activity size={24} color={THEME.colors.primaryHighlight} />
+                  </View>
+                  <View>
+                    <Text style={styles.activityTitle}>Run</Text>
+                    <Text style={styles.activityDate}>{formatDate(run.startTime)} • {formatTime(run.startTime)}</Text>
+                  </View>
+                </View>
+                <View style={styles.statusBadge}>
+                  <Text style={styles.statusText}>Completed</Text>
+                </View>
+              </View>
+
+              <View style={styles.statsGrid}>
+                <View style={styles.statItem}>
+                  <Route size={16} color={THEME.colors.primaryHighlight} style={styles.statIcon} />
+                  <Text style={styles.statValue}>{formatDistance(run.distance)}</Text>
+                  <Text style={styles.statLabel}>km</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Timer size={16} color={THEME.colors.primaryHighlight} style={styles.statIcon} />
+                  <Text style={styles.statValue}>{formatDuration(run.duration)}</Text>
+                  <Text style={styles.statLabel}>time</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Activity size={16} color={THEME.colors.primaryHighlight} style={styles.statIcon} />
+                  <Text style={styles.statValue}>{formatPace(run.avgPace)}</Text>
+                  <Text style={styles.statLabel}>/km</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Zap size={16} color={THEME.colors.primaryHighlight} style={styles.statIcon} />
+                  <Text style={styles.statValue}>{run.calories}</Text>
+                  <Text style={styles.statLabel}>kcal</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          ))
+        )}
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, backgroundColor: THEME.colors.surface, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
-  headerTitle: { fontSize: 28, fontWeight: 'bold', color: THEME.colors.text },
-  monthSelector: { backgroundColor: THEME.colors.surface, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
-  monthSelectorContent: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
-  monthButton: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: THEME.colors.background },
-  monthButtonActive: { backgroundColor: '#f97316' },
-  monthText: { fontSize: 14, fontWeight: '600', color: THEME.colors.textSecondary },
-  monthTextActive: { color: '#fff' },
-  runList: { padding: 16 },
-  runCard: { backgroundColor: THEME.colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: THEME.colors.border },
-  runCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  runDate: { fontSize: 16, fontWeight: 'bold', color: THEME.colors.text },
-  statsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  statItem: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
-  statText: { fontSize: 13, color: THEME.colors.text, fontWeight: '500' },
-  statDivider: { width: 1, height: 16, backgroundColor: THEME.colors.border },
-  miniMapPlaceholder: { height: 80, backgroundColor: THEME.colors.background, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  miniMapText: { fontSize: 12, color: THEME.colors.textSecondary, marginTop: 4 },
-  runCardFooter: { flexDirection: 'row', gap: 16 },
-  footerItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  footerText: { fontSize: 12, color: THEME.colors.textSecondary },
-  emptyState: { alignItems: 'center', paddingTop: 80 },
-  emptyText: { fontSize: 18, fontWeight: 'bold', color: THEME.colors.text, marginTop: 16 },
-  emptySubtext: { fontSize: 14, color: THEME.colors.textSecondary, marginTop: 4 },
+  container: {
+    flex: 1,
+    backgroundColor: THEME.colors.background,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 60,
+    paddingBottom: 100,
+  },
+  center: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    marginBottom: 24,
+  },
+  headerTitle: {
+    fontSize: 30,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 8,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: THEME.colors.textSecondary,
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    backgroundColor: THEME.colors.surface,
+    padding: 4,
+    borderRadius: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  filterTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  filterTabActive: {
+    backgroundColor: THEME.colors.primary,
+  },
+  filterText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: THEME.colors.textSecondary,
+  },
+  filterTextActive: {
+    color: '#fff',
+  },
+  activitiesList: {
+    gap: 16,
+    marginBottom: 24,
+  },
+  activityCard: {
+    backgroundColor: THEME.colors.surface,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  activityInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgba(234, 88, 12, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(234, 88, 12, 0.3)',
+  },
+  activityTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 2,
+  },
+  activityDate: {
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
+  },
+  statusBadge: {
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: THEME.colors.success,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  statItem: {
+    flex: 1,
+    backgroundColor: 'rgba(31, 41, 55, 0.5)',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  statIcon: {
+    marginBottom: 4,
+  },
+  statValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 2,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: THEME.colors.textTertiary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    padding: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+  },
 });

@@ -1,18 +1,19 @@
 export const COLORS = {
-  background: '#0A0A0A', // Deep Black
-  surface: '#1C1C1E', // Dark Grey
-  surfaceHighlight: '#2C2C2E', // Lighter Grey for interactions
-  primary: '#2E5CFF', // Electric Blue
-  secondary: '#32D74B', // Neon Green
-  accent: '#BF5AF2', // Purple
+  background: '#000000', // Deep Black
+  surface: '#111827', // Gray 900
+  surfaceHighlight: '#1F2937', // Gray 800
+  primary: '#EA580C', // Orange 600
+  primaryHighlight: '#F97316', // Orange 500
+  secondary: '#22C55E', // Green 500
+  accent: '#8B5CF6', // Violet 500
   text: '#FFFFFF',
-  textSecondary: '#8E8E93',
-  textTertiary: '#48484A',
-  border: '#38383A',
-  error: '#FF453A',
-  success: '#32D74B',
-  warning: '#FF9F0A',
-  overlay: 'rgba(28, 28, 30, 0.75)', // Glassmorphism base
+  textSecondary: '#9CA3AF', // Gray 400
+  textTertiary: '#6B7280', // Gray 500
+  border: '#1F2937', // Gray 800
+  error: '#EF4444', // Red 500
+  success: '#22C55E', // Green 500
+  warning: '#F59E0B', // Amber 500
+  overlay: 'rgba(0, 0, 0, 0.75)',
   transparent: 'transparent',
 };
 
@@ -28,8 +29,8 @@ export const SPACING = {
 export const BORDER_RADIUS = {
   s: 8,
   m: 12,
-  l: 20,
-  xl: 32,
+  l: 16,
+  xl: 24,
   round: 9999,
 };
 
@@ -39,8 +40,8 @@ export const FONT_SIZE = {
   m: 16,
   l: 20,
   xl: 24,
-  xxl: 32,
-  xxxl: 40,
+  xxl: 30,
+  xxxl: 36,
 };
 
 export const SHADOWS = {
@@ -75,13 +76,13 @@ export const SHADOWS = {
     elevation: 20,
   },
   glow: {
-    shadowColor: '#2E5CFF',
+    shadowColor: '#EA580C',
     shadowOffset: {
       width: 0,
       height: 0,
     },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
+    shadowOpacity: 0.5,
+    shadowRadius: 15,
     elevation: 10,
   }
 };
