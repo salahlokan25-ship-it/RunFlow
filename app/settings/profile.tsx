@@ -1,14 +1,36 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { THEME } from '../../src/theme';
 import { auth } from '../../src/config/firebase';
 import { updateProfile } from 'firebase/auth';
 
 export default function ProfileScreen() {
     const [name, setName] = useState(auth.currentUser?.displayName || '');
+    const [avatarUri, setAvatarUri] = useState<string | null>(auth.currentUser?.photoURL || null);
     const [loading, setLoading] = useState(false);
+
+    const handlePickImage = async () => {
+        const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+        if (permissionResult.granted === false) {
+            Alert.alert('Permission Required', 'Please allow access to your photo library');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+        });
+
+        if (!result.canceled && result.assets[0]) {
+            setAvatarUri(result.assets[0].uri);
+        }
+    };
 
     const handleSave = async () => {
         if (!auth.currentUser) return;
@@ -21,7 +43,8 @@ export default function ProfileScreen() {
         setLoading(true);
         try {
             await updateProfile(auth.currentUser, {
-                displayName: name.trim()
+                displayName: name.trim(),
+                photoURL: avatarUri || undefined,
             });
             Alert.alert('Success', 'Profile updated successfully');
             router.back();
@@ -46,9 +69,13 @@ export default function ProfileScreen() {
             <View style={styles.content}>
                 <View style={styles.avatarContainer}>
                     <View style={styles.avatar}>
-                        <Ionicons name="person" size={40} color="#fff" />
+                        {avatarUri ? (
+                            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+                        ) : (
+                            <Ionicons name="person" size={40} color="#fff" />
+                        )}
                     </View>
-                    <TouchableOpacity style={styles.changeAvatarButton} onPress={() => Alert.alert('Coming Soon', 'Avatar upload will be available soon!')}>
+                    <TouchableOpacity style={styles.changeAvatarButton} onPress={handlePickImage}>
                         <Ionicons name="camera" size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
@@ -133,6 +160,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#f97316',
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
     },
     changeAvatarButton: {
         position: 'absolute',

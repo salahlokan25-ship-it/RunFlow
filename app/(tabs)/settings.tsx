@@ -134,12 +134,12 @@ export default function SettingsScreen() {
           <SettingRow
             icon={Target}
             title="Goals & Targets"
-            onPress={() => Alert.alert('Coming Soon', 'Goals settings coming soon!')}
+            onPress={() => router.push('/settings/goals')}
           />
           <SettingRow
             icon={Activity}
             title="Units & Display"
-            onPress={() => Alert.alert('Coming Soon', 'Unit settings coming soon!')}
+            onPress={() => router.push('/settings/units')}
           />
           <SettingRow
             icon={MapPin}
@@ -155,12 +155,12 @@ export default function SettingsScreen() {
           <SettingRow
             icon={Settings}
             title="General Settings"
-            onPress={() => Alert.alert('Coming Soon', 'General settings coming soon!')}
+            onPress={() => router.push('/settings/general')}
           />
           <SettingRow
             icon={Award}
             title="Achievements"
-            onPress={() => Alert.alert('Coming Soon', 'Achievements coming soon!')}
+            onPress={() => router.push('/settings/achievements')}
           />
         </View>
       </View>

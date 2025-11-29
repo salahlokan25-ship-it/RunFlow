@@ -166,6 +166,145 @@ const TRAINING_PLANS: TrainingPlan[] = [
       },
     ],
   },
+  {
+    id: 'half-marathon-advanced',
+    name: 'Half Marathon Advanced',
+    description: 'Push your limits. Aim for a sub-1:45 half marathon.',
+    level: 'advanced',
+    distance: 'Half Marathon',
+    durationWeeks: 12,
+    weeks: [
+      {
+        weekNumber: 1,
+        workouts: [
+          {
+            id: 'hm-adv-w1-d1',
+            dayOfWeek: 1,
+            type: 'easy',
+            name: 'Base Building',
+            description: 'Steady pace to build aerobic capacity.',
+            duration: 3000, // 50 mins
+          },
+          {
+            id: 'hm-adv-w1-d3',
+            dayOfWeek: 3,
+            type: 'intervals',
+            name: 'Speed Work',
+            description: '8x 400m at goal pace.',
+            intervals: [
+              { type: 'warmup', duration: 900 },
+              { type: 'work', duration: 90, repeat: 8 }, // Approx 400m
+              { type: 'rest', duration: 90, repeat: 8 },
+              { type: 'cooldown', duration: 900 },
+            ],
+          },
+          {
+            id: 'hm-adv-w1-d6',
+            dayOfWeek: 6,
+            type: 'long',
+            name: 'Long Run',
+            description: '14km steady run.',
+            distance: 14000,
+          },
+        ],
+      },
+      // ... more weeks
+    ],
+  },
+  {
+    id: 'marathon-beginner',
+    name: 'Marathon Beginner',
+    description: 'Your first 42.2km. Focus on finishing strong.',
+    level: 'beginner',
+    distance: 'Marathon',
+    durationWeeks: 16,
+    weeks: [
+      {
+        weekNumber: 1,
+        workouts: [
+          {
+            id: 'mar-beg-w1-d2',
+            dayOfWeek: 2,
+            type: 'easy',
+            name: 'Short Run',
+            description: 'Get the legs moving.',
+            duration: 1800, // 30 mins
+          },
+          {
+            id: 'mar-beg-w1-d4',
+            dayOfWeek: 4,
+            type: 'easy',
+            name: 'Medium Run',
+            description: 'Comfortable pace.',
+            duration: 2700, // 45 mins
+          },
+          {
+            id: 'mar-beg-w1-d7',
+            dayOfWeek: 0,
+            type: 'long',
+            name: 'Long Run',
+            description: 'Slow and steady.',
+            distance: 10000, // 10km
+          },
+        ],
+      },
+      // ... more weeks
+    ],
+  },
+  {
+    id: 'c25k',
+    name: 'Couch to 5K',
+    description: 'From zero to hero. Walk/Run intervals to get you started.',
+    level: 'beginner',
+    distance: '5K',
+    durationWeeks: 9,
+    weeks: [
+      {
+        weekNumber: 1,
+        workouts: [
+          {
+            id: 'c25k-w1-d1',
+            dayOfWeek: 1,
+            type: 'intervals',
+            name: 'Week 1 Run 1',
+            description: 'Alternating walking and running.',
+            intervals: [
+              { type: 'warmup', duration: 300 }, // 5 min walk
+              { type: 'work', duration: 60, repeat: 8 }, // 60s run
+              { type: 'rest', duration: 90, repeat: 8 }, // 90s walk
+              { type: 'cooldown', duration: 300 }, // 5 min walk
+            ],
+          },
+          {
+            id: 'c25k-w1-d3',
+            dayOfWeek: 3,
+            type: 'intervals',
+            name: 'Week 1 Run 2',
+            description: 'Alternating walking and running.',
+            intervals: [
+              { type: 'warmup', duration: 300 },
+              { type: 'work', duration: 60, repeat: 8 },
+              { type: 'rest', duration: 90, repeat: 8 },
+              { type: 'cooldown', duration: 300 },
+            ],
+          },
+          {
+            id: 'c25k-w1-d5',
+            dayOfWeek: 5,
+            type: 'intervals',
+            name: 'Week 1 Run 3',
+            description: 'Alternating walking and running.',
+            intervals: [
+              { type: 'warmup', duration: 300 },
+              { type: 'work', duration: 60, repeat: 8 },
+              { type: 'rest', duration: 90, repeat: 8 },
+              { type: 'cooldown', duration: 300 },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export const getTrainingPlans = (): TrainingPlan[] => {
@@ -182,7 +321,7 @@ export const getCurrentWeekWorkouts = (
 ): Workout[] => {
   const plan = getTrainingPlanById(planId);
   if (!plan) return [];
-  
+
   const week = plan.weeks.find((w) => w.weekNumber === weekNumber);
   return week?.workouts || [];
 };
