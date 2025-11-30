@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Play, Zap, Route, Timer, ChevronRight, Trophy, Lightbulb, Flame } from 'lucide-react-native';
+import { Play, Zap, Route, Timer, ChevronRight, Trophy, Lightbulb, Flame, Bot } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { THEME } from '../../src/theme';
 import { getTrainingPlans } from '../../src/services/TrainingPlanService';
@@ -60,6 +60,31 @@ export default function TrainingScreen() {
                             <Play size={20} color={THEME.colors.primary} fill="currentColor" />
                             <Text style={styles.beginButtonText}>Begin Training</Text>
                         </View>
+                    </View>
+                </LinearGradient>
+            </TouchableOpacity>
+            {/* AI Coach Card */}
+            <TouchableOpacity
+                style={styles.aiCoachCard}
+                onPress={() => router.push('/training/ai-coach')}
+            >
+                <LinearGradient
+                    colors={['#7C3AED', '#4F46E5']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.aiCoachGradient}
+                >
+                    <View style={styles.aiCoachContent}>
+                        <View style={styles.aiCoachHeader}>
+                            <View style={styles.aiCoachIconBox}>
+                                <Bot size={24} color="#fff" />
+                            </View>
+                            <View>
+                                <Text style={styles.aiCoachTitle}>AI Coach</Text>
+                                <Text style={styles.aiCoachSubtitle}>Get personalized advice</Text>
+                            </View>
+                        </View>
+                        <ChevronRight size={20} color="rgba(255,255,255,0.7)" />
                     </View>
                 </LinearGradient>
             </TouchableOpacity>
@@ -236,7 +261,7 @@ const styles = StyleSheet.create({
     },
     content: {
         padding: 20,
-        paddingTop: 60,
+        paddingTop: 20,
         paddingBottom: 100,
     },
     header: {
@@ -524,5 +549,46 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '600',
         color: THEME.colors.primaryHighlight,
+    },
+
+    aiCoachCard: {
+        marginBottom: 24,
+        borderRadius: 20,
+        shadowColor: '#4F46E5',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    aiCoachGradient: {
+        borderRadius: 20,
+        padding: 20,
+    },
+    aiCoachContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    aiCoachHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    aiCoachIconBox: {
+        width: 48,
+        height: 48,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    aiCoachTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#fff',
+    },
+    aiCoachSubtitle: {
+        fontSize: 14,
+        color: 'rgba(255, 255, 255, 0.8)',
     },
 });

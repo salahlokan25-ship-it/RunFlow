@@ -27,9 +27,9 @@ export interface Run {
   elevationLoss?: number;
 }
 
-export type WorkoutType = 'easy' | 'tempo' | 'intervals' | 'long' | 'rest';
-export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced';
-export type PlanDistance = '5K' | '10K' | 'Half Marathon' | 'Marathon';
+export type WorkoutType = 'easy' | 'tempo' | 'intervals' | 'long' | 'rest' | 'cross-training' | 'strength' | 'mobility';
+export type TrainingLevel = 'beginner' | 'intermediate' | 'advanced' | 'all';
+export type PlanDistance = '5K' | '10K' | 'Half Marathon' | 'Marathon' | 'N/A';
 
 export interface Interval {
   type: 'warmup' | 'work' | 'rest' | 'cooldown';

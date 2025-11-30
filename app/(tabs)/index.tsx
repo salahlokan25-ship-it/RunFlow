@@ -11,6 +11,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import HealthKitService from '../../src/services/HealthKitService';
 import { sendAchievementNotification } from '../../src/services/NotificationService';
+import { RunSummaryModal } from '../../src/components/RunSummaryModal';
+import { shareRunToFeed } from '../../src/services/SocialService';
+import { Run } from '../../src/types';
 
 export default function StartScreen() {
   const {
@@ -37,7 +40,7 @@ export default function StartScreen() {
   const [showAICoachModal, setShowAICoachModal] = useState(false);
   const [showMusicModal, setShowMusicModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
-  
+
   // Data State
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
@@ -45,6 +48,8 @@ export default function StartScreen() {
   const [aiCoachEnabled, setAiCoachEnabled] = useState(true);
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [activityType, setActivityType] = useState('Running');
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [completedRun, setCompletedRun] = useState<Run | null>(null);
 
   const activities = [
     'Running', 'Walking', 'Cycling', 'Hiking', 'Treadmill', 'Trail Running',
@@ -88,7 +93,7 @@ export default function StartScreen() {
         };
 
         // Save to local database
-        await saveRun(runData);
+        const savedRun = await saveRun(runData);
 
         // Try to save to Apple Health
         const healthSaved = await HealthKitService.saveWorkout({
@@ -106,15 +111,33 @@ export default function StartScreen() {
           await sendAchievementNotification('5K Milestone!', `You just completed ${(distance / 1000).toFixed(2)} km!`);
         }
 
-        Alert.alert(
-          'Activity Saved', 
-          `Your ${activityType} session has been saved!${healthSaved ? '\n✓ Synced to Apple Health' : ''}`
-        );
+        // Show summary modal instead of alert
+        console.log('Setting completed run:', savedRun);
+        console.log('Showing summary modal');
+        setCompletedRun(savedRun);
+        setShowSummaryModal(true);
       } catch (e) {
-        console.error(e);
+        console.error('Error in handleStop:', e);
         Alert.alert('Error', 'Failed to save activity.');
       }
     }
+  };
+
+  const handleShareToFeed = async () => {
+    if (completedRun) {
+      try {
+        await shareRunToFeed(completedRun);
+        setShowSummaryModal(false);
+        Alert.alert('Success', 'Your run has been shared to the Feed! 🎉');
+      } catch (error) {
+        Alert.alert('Error', 'Failed to share run to feed.');
+      }
+    }
+  };
+
+  const handleDismissModal = () => {
+    setShowSummaryModal(false);
+    setCompletedRun(null);
   };
 
   const formatDuration = (seconds: number) => {
@@ -145,14 +168,14 @@ export default function StartScreen() {
             data={activities}
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={[styles.modalOption, item === activityType && { backgroundColor: '#f9731620' }]} 
+              <TouchableOpacity
+                style={[styles.modalOption, item === activityType && { backgroundColor: '#f9731620' }]}
                 onPress={() => { setActivityType(item); setShowActivityModal(false); }}
               >
-                <Ionicons 
-                  name={item === 'Running' ? 'walk' : item === 'Cycling' ? 'bicycle' : 'fitness'} 
-                  size={24} 
-                  color={item === activityType ? "#f97316" : THEME.colors.text} 
+                <Ionicons
+                  name={item === 'Running' ? 'walk' : item === 'Cycling' ? 'bicycle' : 'fitness'}
+                  size={24}
+                  color={item === activityType ? "#f97316" : THEME.colors.text}
                 />
                 <Text style={[styles.modalOptionText, item === activityType && { color: "#f97316", fontWeight: 'bold' }]}>{item}</Text>
                 {item === activityType && <Ionicons name="checkmark" size={20} color="#f97316" />}
@@ -276,7 +299,7 @@ export default function StartScreen() {
       >
         <View style={styles.headerContent}>
           <View>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
               onPress={() => setShowActivityModal(true)}
             >
@@ -358,7 +381,7 @@ export default function StartScreen() {
         {/* Sub-actions */}
         {!isTracking && (
           <View style={styles.subActions}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.subAction}
               onPress={() => setShowGoalModal(true)}
             >
@@ -366,7 +389,7 @@ export default function StartScreen() {
               <Text style={styles.subActionText}>{goal.type !== 'none' ? `${goal.value} ${goal.type}` : 'Set Goal'}</Text>
             </TouchableOpacity>
             <View style={styles.subActionDivider} />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.subAction}
               onPress={() => setShowRoutesModal(true)}
             >
@@ -378,21 +401,21 @@ export default function StartScreen() {
 
         {/* Bottom Mini Menu */}
         <View style={styles.miniMenu}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.miniMenuItem}
             onPress={() => setShowRoutesModal(true)}
           >
             <Ionicons name="navigate-circle" size={24} color={THEME.colors.textSecondary} />
             <Text style={styles.miniMenuText}>Routes</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.miniMenuItem}
             onPress={() => setShowAICoachModal(true)}
           >
             <Ionicons name="sparkles" size={24} color={aiCoachEnabled ? "#f97316" : THEME.colors.textSecondary} />
             <Text style={[styles.miniMenuText, aiCoachEnabled && { color: "#f97316" }]}>AI Coach</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.miniMenuItem}
             onPress={() => setShowMusicModal(true)}
           >
@@ -408,13 +431,19 @@ export default function StartScreen() {
       <RoutesModal />
       <AICoachModal />
       <MusicModal />
+      <RunSummaryModal
+        visible={showSummaryModal}
+        runData={completedRun}
+        onShare={handleShareToFeed}
+        onDismiss={handleDismissModal}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.colors.background },
-  header: { paddingTop: 50, paddingBottom: 16, paddingHorizontal: 20 },
+  header: { paddingTop: 20, paddingBottom: 16, paddingHorizontal: 20 },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { fontSize: 28, fontWeight: 'bold', color: '#fff', marginBottom: 4 },
   weatherRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -441,7 +470,7 @@ const styles = StyleSheet.create({
   miniMenu: { flexDirection: 'row', marginHorizontal: 16, marginTop: 24, marginBottom: 32, justifyContent: 'space-around' },
   miniMenuItem: { alignItems: 'center', gap: 6 },
   miniMenuText: { fontSize: 12, color: THEME.colors.textSecondary },
-  
+
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: THEME.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, minHeight: 300 },

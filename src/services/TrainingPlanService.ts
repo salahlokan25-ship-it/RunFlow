@@ -305,6 +305,120 @@ const TRAINING_PLANS: TrainingPlan[] = [
       },
     ],
   },
+  {
+    id: 'marathon-mastery',
+    name: 'Marathon Mastery: Sub-3',
+    description: 'Advanced pyramidal training for experienced runners aiming for a sub-3 hour marathon.',
+    level: 'advanced',
+    distance: 'Marathon',
+    durationWeeks: 18,
+    weeks: [
+      {
+        weekNumber: 1,
+        workouts: [
+          {
+            id: 'mm-w1-d1',
+            dayOfWeek: 1,
+            type: 'easy',
+            name: 'Easy Aerobic Run',
+            description: 'Keep HR in Zone 2. Build volume.',
+            duration: 3600, // 60 mins
+          },
+          {
+            id: 'mm-w1-d3',
+            dayOfWeek: 3,
+            type: 'intervals',
+            name: 'Threshold Intervals',
+            description: '3x 10min at threshold pace with 2min recovery.',
+            intervals: [
+              { type: 'warmup', duration: 900 },
+              { type: 'work', duration: 600, repeat: 3 },
+              { type: 'rest', duration: 120, repeat: 3 },
+              { type: 'cooldown', duration: 900 },
+            ],
+          },
+          {
+            id: 'mm-w1-d6',
+            dayOfWeek: 6,
+            type: 'long',
+            name: 'Long Run with MP',
+            description: '24km total with last 5km at Marathon Pace.',
+            distance: 24000,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'first-marathon-finish',
+    name: 'First Marathon: Finish Strong',
+    description: 'Comprehensive plan for first-timers focusing on endurance and cross-training.',
+    level: 'beginner',
+    distance: 'Marathon',
+    durationWeeks: 20,
+    weeks: [
+      {
+        weekNumber: 1,
+        workouts: [
+          {
+            id: 'fm-w1-d2',
+            dayOfWeek: 2,
+            type: 'easy',
+            name: 'Easy Run',
+            description: 'Conversational pace.',
+            duration: 1800, // 30 mins
+          },
+          {
+            id: 'fm-w1-d4',
+            dayOfWeek: 4,
+            type: 'cross-training',
+            name: 'Cross Training',
+            description: 'Cycling or Swimming to build aerobic base without impact.',
+            duration: 2700, // 45 mins
+          },
+          {
+            id: 'fm-w1-d7',
+            dayOfWeek: 0,
+            type: 'long',
+            name: 'Long Run',
+            description: 'Walk/Run strategy allowed. Time on feet is key.',
+            distance: 8000, // 8km
+          },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'injury-prevention',
+    name: 'Injury Prevention & Recovery',
+    description: 'Supplemental strength and mobility routines to keep you running healthy.',
+    level: 'all',
+    distance: 'N/A',
+    durationWeeks: 4,
+    weeks: [
+      {
+        weekNumber: 1,
+        workouts: [
+          {
+            id: 'ip-w1-d1',
+            dayOfWeek: 1,
+            type: 'strength',
+            name: 'Glute & Core Strength',
+            description: 'Clamshells, Bridges, Planks. 3 sets of 15 reps.',
+            duration: 1200, // 20 mins
+          },
+          {
+            id: 'ip-w1-d3',
+            dayOfWeek: 3,
+            type: 'mobility',
+            name: 'Hip Mobility Flow',
+            description: '90/90 stretch, Pigeon pose, Lunges.',
+            duration: 900, // 15 mins
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export const getTrainingPlans = (): TrainingPlan[] => {

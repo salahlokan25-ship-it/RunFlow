@@ -2,10 +2,10 @@ import { getDB } from '../db';
 import { Run } from '../types';
 import * as Crypto from 'expo-crypto';
 
-export const saveRun = async (run: Omit<Run, 'id'>) => {
+export const saveRun = async (run: Omit<Run, 'id'>): Promise<Run> => {
   const db = getDB();
   const id = Crypto.randomUUID();
-  
+
   await db.runAsync(
     'INSERT INTO runs (id, startTime, endTime, duration, distance, avgPace, calories, pointsJson, splitsJson, elevationGain, elevationLoss) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     id,
@@ -20,6 +20,11 @@ export const saveRun = async (run: Omit<Run, 'id'>) => {
     run.elevationGain || 0,
     run.elevationLoss || 0
   );
+
+  return {
+    id,
+    ...run,
+  };
 };
 
 export const getAllRuns = async (): Promise<Run[]> => {
@@ -36,7 +41,7 @@ export const getRunById = async (id: string): Promise<Run | null> => {
   const db = getDB();
   const result = await db.getFirstAsync('SELECT * FROM runs WHERE id = ?', id);
   if (!result) return null;
-  
+
   const r: any = result;
   return {
     ...r,

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList }
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../../src/theme';
 import { auth } from '../../src/config/firebase';
+import { getSharedRuns, SharedRun } from '../../src/services/SocialService';
 
 interface Story {
   id: string;
@@ -61,7 +62,17 @@ export default function FeedScreen() {
     },
   ]);
 
+  const [sharedRuns, setSharedRuns] = useState<SharedRun[]>([]);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    loadSharedRuns();
+  }, []);
+
+  const loadSharedRuns = async () => {
+    const runs = await getSharedRuns();
+    setSharedRuns(runs);
+  };
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
@@ -87,7 +98,12 @@ export default function FeedScreen() {
             <Ionicons name="person" size={24} color="#fff" />
           </View>
         </View>
-        {item.id === '1' && (
+        {item.id === '1' && sharedRuns.length > 0 && (
+          <View style={styles.addStoryButton}>
+            <Ionicons name="checkmark" size={14} color="#fff" />
+          </View>
+        )}
+        {item.id === '1' && sharedRuns.length === 0 && (
           <View style={styles.addStoryButton}>
             <Ionicons name="add" size={14} color="#fff" />
           </View>
@@ -99,7 +115,7 @@ export default function FeedScreen() {
 
   const renderPost = ({ item }: { item: Post }) => {
     const isLiked = likedPosts.has(item.id);
-    
+
     return (
       <View style={styles.postCard}>
         {/* Post Header */}
@@ -146,14 +162,14 @@ export default function FeedScreen() {
 
         {/* Actions */}
         <View style={styles.postActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.actionButton}
             onPress={() => toggleLike(item.id)}
           >
-            <Ionicons 
-              name={isLiked ? "heart" : "heart-outline"} 
-              size={20} 
-              color={isLiked ? "#ef4444" : THEME.colors.textSecondary} 
+            <Ionicons
+              name={isLiked ? "heart" : "heart-outline"}
+              size={20}
+              color={isLiked ? "#ef4444" : THEME.colors.textSecondary}
             />
             <Text style={[styles.actionText, isLiked && styles.actionTextLiked]}>
               {item.likes + (isLiked ? 1 : 0)}
@@ -243,7 +259,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // Stories
   storiesSection: {
     paddingVertical: 12,
@@ -268,7 +284,6 @@ const styles = StyleSheet.create({
   },
   storyRingActive: {
     borderWidth: 0,
-    background: 'linear-gradient(45deg, #8A2BE2, #007BFF)',
     padding: 2,
   },
   storyRingYourStory: {
@@ -390,6 +405,10 @@ const styles = StyleSheet.create({
     width: 1,
     height: 24,
     backgroundColor: '#2d3748',
+  },
+  content: {
+    paddingBottom: 100,
+    paddingTop: 20,
   },
   postCaption: {
     padding: 16,
