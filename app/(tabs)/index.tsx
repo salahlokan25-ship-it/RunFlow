@@ -123,10 +123,10 @@ export default function StartScreen() {
     }
   };
 
-  const handleShareToFeed = async () => {
+  const handleShareToFeed = async (caption?: string) => {
     if (completedRun) {
       try {
-        await shareRunToFeed(completedRun);
+        await shareRunToFeed(completedRun, caption);
         setShowSummaryModal(false);
         Alert.alert('Success', 'Your run has been shared to the Feed! 🎉');
       } catch (error) {

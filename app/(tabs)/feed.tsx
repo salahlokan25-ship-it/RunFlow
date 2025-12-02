@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../../src/theme';
 import { auth } from '../../src/config/firebase';
 import { getSharedRuns, SharedRun } from '../../src/services/SocialService';
+import { StoryViewer } from '../../src/components/StoryViewer';
+import { useFocusEffect } from '@react-navigation/native';
 
 interface Story {
   id: string;
@@ -64,15 +66,82 @@ export default function FeedScreen() {
 
   const [sharedRuns, setSharedRuns] = useState<SharedRun[]>([]);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [showStoryViewer, setShowStoryViewer] = useState(false);
+  const [storyIndex, setStoryIndex] = useState(0);
 
   useEffect(() => {
     loadSharedRuns();
   }, []);
 
+  // Refresh shared runs when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadSharedRuns();
+    }, [])
+  );
+
   const loadSharedRuns = async () => {
     const runs = await getSharedRuns();
-    setSharedRuns(runs);
+    // Filter out expired stories (older than 24 hours)
+    const now = Date.now();
+    const validRuns = runs.filter(run => (now - run.sharedAt) < 24 * 60 * 60 * 1000);
+    setSharedRuns(validRuns);
   };
+
+  const openStoryViewer = (index: number = 0) => {
+    if (sharedRuns.length > 0) {
+      setStoryIndex(index);
+      setShowStoryViewer(true);
+    }
+  };
+
+  // Convert shared runs to posts
+  const sharedRunPosts: Post[] = sharedRuns.map((run) => {
+    const formatDuration = (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const formatDistance = (meters: number) => {
+      return `${(meters / 1000).toFixed(2)} km`;
+    };
+
+    const formatPace = (paceValue: number) => {
+      if (paceValue === 0) return '--:--';
+      const mins = Math.floor(paceValue);
+      const secs = Math.round((paceValue - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')} min/km`;
+    };
+
+    const formatTimeAgo = (timestamp: number) => {
+      const now = Date.now();
+      const diff = now - timestamp;
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      if (hours < 1) return 'Just now';
+      if (hours === 1) return '1h ago';
+      if (hours < 24) return `${hours}h ago`;
+      return '1d ago';
+    };
+
+    return {
+      id: run.id,
+      user: { name: 'You', avatar: 'https://via.placeholder.com/100' },
+      timeAgo: formatTimeAgo(run.sharedAt),
+      mapImage: 'https://via.placeholder.com/400x300',
+      stats: {
+        distance: formatDistance(run.distance),
+        pace: formatPace(run.avgPace),
+        time: formatDuration(run.duration),
+      },
+      caption: run.caption || 'Great run! 🏃‍♂️',
+      likes: 0,
+      comments: 0,
+    };
+  });
+
+  // Combine shared runs with existing posts
+  const allPosts = [...sharedRunPosts, ...posts];
 
   const toggleLike = (postId: string) => {
     setLikedPosts(prev => {
@@ -86,32 +155,41 @@ export default function FeedScreen() {
     });
   };
 
-  const renderStory = ({ item }: { item: Story }) => (
-    <TouchableOpacity style={styles.storyContainer}>
-      <View style={[
-        styles.storyRing,
-        item.hasStory && styles.storyRingActive,
-        item.id === '1' && styles.storyRingYourStory
-      ]}>
-        <View style={styles.storyAvatarContainer}>
-          <View style={styles.storyAvatar}>
-            <Ionicons name="person" size={24} color="#fff" />
+  const renderStory = ({ item }: { item: Story }) => {
+    const isYourStory = item.id === '1';
+    const hasSharedRuns = sharedRuns.length > 0;
+
+    return (
+      <TouchableOpacity
+        style={styles.storyContainer}
+        onPress={() => isYourStory && hasSharedRuns ? openStoryViewer(0) : null}
+      >
+        <View style={[
+          styles.storyRing,
+          item.hasStory && styles.storyRingActive,
+          isYourStory && hasSharedRuns && styles.storyRingActive,
+          isYourStory && styles.storyRingYourStory
+        ]}>
+          <View style={styles.storyAvatarContainer}>
+            <View style={styles.storyAvatar}>
+              <Ionicons name="person" size={24} color="#fff" />
+            </View>
           </View>
+          {isYourStory && hasSharedRuns && (
+            <View style={styles.addStoryButton}>
+              <Ionicons name="checkmark" size={14} color="#fff" />
+            </View>
+          )}
+          {isYourStory && !hasSharedRuns && (
+            <View style={styles.addStoryButton}>
+              <Ionicons name="add" size={14} color="#fff" />
+            </View>
+          )}
         </View>
-        {item.id === '1' && sharedRuns.length > 0 && (
-          <View style={styles.addStoryButton}>
-            <Ionicons name="checkmark" size={14} color="#fff" />
-          </View>
-        )}
-        {item.id === '1' && sharedRuns.length === 0 && (
-          <View style={styles.addStoryButton}>
-            <Ionicons name="add" size={14} color="#fff" />
-          </View>
-        )}
-      </View>
-      <Text style={styles.storyName}>{item.name}</Text>
-    </TouchableOpacity>
-  );
+        <Text style={styles.storyName}>{item.name}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const renderPost = ({ item }: { item: Post }) => {
     const isLiked = likedPosts.has(item.id);
@@ -213,9 +291,17 @@ export default function FeedScreen() {
         />
       </View>
 
+      {/* Story Viewer */}
+      <StoryViewer
+        visible={showStoryViewer}
+        stories={sharedRuns}
+        initialIndex={storyIndex}
+        onClose={() => setShowStoryViewer(false)}
+      />
+
       {/* Posts */}
       <FlatList
-        data={posts}
+        data={allPosts}
         renderItem={renderPost}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.postsContent}

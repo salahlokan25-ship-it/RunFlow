@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Share2, MapPin, Clock, Zap, Flame } from 'lucide-react-native';
 import { THEME } from '../theme';
@@ -8,7 +8,7 @@ import { Run } from '../types';
 interface RunSummaryModalProps {
     visible: boolean;
     runData: Run | null;
-    onShare: () => void;
+    onShare: (caption?: string) => void;
     onDismiss: () => void;
 }
 
@@ -19,6 +19,7 @@ export const RunSummaryModal: React.FC<RunSummaryModalProps> = ({
     onDismiss,
 }) => {
     console.log('RunSummaryModal props:', { visible, runData: !!runData });
+    const [caption, setCaption] = useState('');
 
     if (!runData) return null;
 
@@ -101,9 +102,22 @@ export const RunSummaryModal: React.FC<RunSummaryModalProps> = ({
                         </View>
                     </View>
 
+                    {/* Caption Input */}
+                    <View style={styles.captionContainer}>
+                        <TextInput
+                            style={styles.captionInput}
+                            placeholder="Add a caption... (optional)"
+                            placeholderTextColor={THEME.colors.textTertiary}
+                            value={caption}
+                            onChangeText={setCaption}
+                            multiline
+                            maxLength={150}
+                        />
+                    </View>
+
                     {/* Action Buttons */}
                     <View style={styles.actions}>
-                        <TouchableOpacity style={styles.shareButton} onPress={onShare}>
+                        <TouchableOpacity style={styles.shareButton} onPress={() => onShare(caption)}>
                             <LinearGradient
                                 colors={[THEME.colors.primary, THEME.colors.primaryHighlight]}
                                 start={{ x: 0, y: 0 }}
@@ -210,6 +224,20 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: THEME.colors.textSecondary,
         textTransform: 'uppercase',
+    },
+    captionContainer: {
+        marginBottom: 20,
+    },
+    captionInput: {
+        backgroundColor: THEME.colors.background,
+        borderRadius: 12,
+        padding: 16,
+        color: THEME.colors.text,
+        fontSize: 15,
+        minHeight: 80,
+        textAlignVertical: 'top',
+        borderWidth: 1,
+        borderColor: THEME.colors.border,
     },
     actions: {
         gap: 12,
