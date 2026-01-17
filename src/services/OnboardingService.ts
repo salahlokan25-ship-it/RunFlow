@@ -1,4 +1,5 @@
 import { getDB } from '../db';
+import { db } from '../config/firebase'; // Ensure Firebase db is imported if used, but code below uses SQLite getDB()
 
 export interface UserProfile {
   id: string;
@@ -16,7 +17,7 @@ export interface UserProfile {
 export const saveUserProfile = async (profile: Omit<UserProfile, 'id' | 'createdAt'>): Promise<void> => {
   const db = getDB();
   const id = `profile_${Date.now()}`;
-  
+
   db.runSync(
     `INSERT INTO user_profile (
       id, userId, experienceLevel, activityFrequency, primaryGoal, 
@@ -40,7 +41,7 @@ export const saveUserProfile = async (profile: Omit<UserProfile, 'id' | 'created
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
   const db = getDB();
-  
+
   const result = db.getFirstSync<any>(
     'SELECT * FROM user_profile WHERE userId = ? ORDER BY createdAt DESC LIMIT 1',
     [userId]
@@ -65,4 +66,41 @@ export const getUserProfile = async (userId: string): Promise<UserProfile | null
 export const hasCompletedOnboarding = async (userId: string): Promise<boolean> => {
   const profile = await getUserProfile(userId);
   return profile?.onboardingCompleted || false;
+};
+
+export const completeOnboarding = async (userId: string): Promise<void> => {
+  const db = getDB();
+  // We should preferably update an existing profile or insert a minimal one if not exists.
+  // For simplicity, let's try to update any existing profile for this user
+
+  const existingProfile = await getUserProfile(userId);
+
+  if (existingProfile) {
+    db.runSync(
+      'UPDATE user_profile SET onboardingCompleted = 1 WHERE userId = ?',
+      [userId]
+    );
+  } else {
+    // Create a default profile if none exists
+    const id = `profile_${Date.now()}`;
+    db.runSync(
+      `INSERT INTO user_profile (
+          id, userId, experienceLevel, activityFrequency, primaryGoal, 
+          targetDistance, preferredActivities, notificationPreferences, 
+          onboardingCompleted, createdAt
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        userId,
+        'Beginner', // Default
+        'Occasionally', // Default
+        'Health', // Default
+        '',
+        JSON.stringify([]),
+        JSON.stringify([]),
+        1,
+        Date.now()
+      ]
+    );
+  }
 };

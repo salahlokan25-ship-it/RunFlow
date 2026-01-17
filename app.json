@@ -7,6 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "jsEngine": "jsc",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -14,14 +15,33 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.runflow.app",
+      "bundleIdentifier": "comrunflowapp",
+      "buildNumber": "22",
       "config": {
         "googleMapsApiKey": "AIzaSyDMtb3jPziMeVjTckpARxwU9VvuewuHCHc"
       },
       "infoPlist": {
         "NSHealthShareUsageDescription": "RunFlow needs access to read your health data to provide personalized insights and track your fitness progress",
         "NSHealthUpdateUsageDescription": "RunFlow needs access to save your workouts to Apple Health",
-        "UIBackgroundModes": ["remote-notification", "location"]
+        "NSLocationWhenInUseUsageDescription": "RunFlow uses your location to track your runs, calculate distance, and show your route on the map.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "RunFlow needs background location access to track your run even when the screen is off or you open another app.",
+        "NSLocationAlwaysUsageDescription": "RunFlow needs location access to track your runs and progress accurately.",
+        "NSPhotoLibraryUsageDescription": "RunFlow needs access to your photos to let you share workout summaries and create stories.",
+        "NSPhotoLibraryAddUsageDescription": "RunFlow needs permission to save workout result images to your photo library.",
+        "NSCameraUsageDescription": "RunFlow needs camera access to let you take photos for your workout stories.",
+        "NSMicrophoneUsageDescription": "RunFlow needs microphone access for video features.",
+        "NSMotionUsageDescription": "RunFlow uses motion data to track your steps and cadence.",
+        "UIBackgroundModes": [
+          "remote-notification",
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSUserTrackingUsageDescription": "This identifier will be used to deliver personalized content to you and improve app features.",
+        "NSBluetoothAlwaysUsageDescription": "RunFlow uses Bluetooth if you choose to connect heart rate monitors or other fitness accessories.",
+        "NSBluetoothPeripheralUsageDescription": "RunFlow uses Bluetooth if you choose to connect heart rate monitors or other fitness accessories."
       }
     },
     "android": {
@@ -37,8 +57,10 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
         "android.permission.POST_NOTIFICATIONS"
-      ]
+      ],
+      "package": "com.comrunflowapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -62,7 +84,14 @@
         {
           "isClinicalDataEnabled": false
         }
-      ]
-    ]
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0c895946-04c2-4e0c-8d77-3e87a4999d53"
+      }
+    }
   }
 }

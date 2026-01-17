@@ -34,7 +34,7 @@ export default function TrainingScreen() {
             {/* Start Run Card */}
             <TouchableOpacity
                 style={styles.startRunCardContainer}
-                onPress={() => router.push('/(tabs)/index')}
+                onPress={() => router.push('/')}
             >
                 <LinearGradient
                     colors={[THEME.colors.primary, THEME.colors.primaryHighlight]}
@@ -97,19 +97,19 @@ export default function TrainingScreen() {
                         icon={Route}
                         label="Distance"
                         color={THEME.colors.secondary}
-                        onPress={() => router.push({ pathname: '/(tabs)/index', params: { mode: 'distance' } })}
+                        onPress={() => router.push({ pathname: '/', params: { mode: 'distance' } })}
                     />
                     <QuickAction
                         icon={Timer}
                         label="Time"
                         color={THEME.colors.accent}
-                        onPress={() => router.push({ pathname: '/(tabs)/index', params: { mode: 'time' } })}
+                        onPress={() => router.push({ pathname: '/', params: { mode: 'time' } })}
                     />
                     <QuickAction
                         icon={Flame}
                         label="Intervals"
                         color={THEME.colors.warning}
-                        onPress={() => router.push({ pathname: '/(tabs)/index', params: { mode: 'intervals' } })}
+                        onPress={() => router.push({ pathname: '/', params: { mode: 'intervals' } })}
                     />
                 </View>
             </View>

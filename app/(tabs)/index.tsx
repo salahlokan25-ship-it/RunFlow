@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Modal, FlatList, Switch } from 'react-native';
+import MapView from 'react-native-maps';
 import { useRunTracking } from '../../src/hooks/useRunTracking';
 import { MapComponent } from '../../src/components/MapComponent';
 import { saveRun } from '../../src/services/RunService';
@@ -8,12 +9,13 @@ import { AICoachService } from '../../src/services/AICoachService';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../../src/theme';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import HealthKitService from '../../src/services/HealthKitService';
 import { sendAchievementNotification } from '../../src/services/NotificationService';
 import { RunSummaryModal } from '../../src/components/RunSummaryModal';
 import { shareRunToFeed } from '../../src/services/SocialService';
-import { Run } from '../../src/types';
+import { Run, GPSPoint } from '../../src/types';
+import { RouteGenerator } from '../../src/utils/RouteGenerator';
 
 export default function StartScreen() {
   const {
@@ -38,18 +40,22 @@ export default function StartScreen() {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [showRoutesModal, setShowRoutesModal] = useState(false);
   const [showAICoachModal, setShowAICoachModal] = useState(false);
-  const [showMusicModal, setShowMusicModal] = useState(false);
   const [showActivityModal, setShowActivityModal] = useState(false);
 
   // Data State
   const [savedRoutes, setSavedRoutes] = useState<SavedRoute[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<SavedRoute | null>(null);
   const [goal, setGoal] = useState<{ type: 'distance' | 'duration' | 'none', value: number }>({ type: 'none', value: 0 });
+  const [goalReached, setGoalReached] = useState(false);
   const [aiCoachEnabled, setAiCoachEnabled] = useState(true);
-  const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const [activityType, setActivityType] = useState('Running');
   const [showSummaryModal, setShowSummaryModal] = useState(false);
+
   const [completedRun, setCompletedRun] = useState<Run | null>(null);
+  const [runSnapshotUri, setRunSnapshotUri] = useState<string | null>(null);
+  const [targetRoute, setTargetRoute] = useState<GPSPoint[]>([]);
+
+  const mapRef = React.useRef<MapView>(null);
 
   const activities = [
     'Running', 'Walking', 'Cycling', 'Hiking', 'Treadmill', 'Trail Running',
@@ -70,9 +76,49 @@ export default function StartScreen() {
     setSavedRoutes(routes);
   };
 
+  const params = useLocalSearchParams();
+  const paramsProcessed = React.useRef(false);
+
+  useEffect(() => {
+    if (params?.mode && !paramsProcessed.current) {
+      if (params.mode === 'distance' || params.mode === 'time' || params.mode === 'intervals') {
+        setShowGoalModal(true);
+        paramsProcessed.current = true;
+      }
+    }
+  }, [params]);
+
+  // Generate target route when goal changes
+  useEffect(() => {
+    if (goal.type === 'distance' && goal.value > 0) {
+      if (currentLocation) {
+        // Generate a circular route starting from current location
+        const route = RouteGenerator.generateCircularRoute(currentLocation.coords, goal.value);
+        setTargetRoute(route);
+      }
+    } else {
+      setTargetRoute([]);
+    }
+  }, [goal]);
+
   const handleStart = () => {
+    setGoalReached(false);
     startTracking();
   };
+
+  useEffect(() => {
+    if (!isTracking || isPaused || goal.type === 'none' || goalReached) return;
+
+    let met = false;
+    if (goal.type === 'distance' && distance >= goal.value) met = true;
+    if (goal.type === 'duration' && duration >= goal.value) met = true;
+
+    if (met) {
+      setGoalReached(true);
+      Alert.alert("Goal Reached! 🏆", "You've hit your target! Keep going or stop now.");
+      // Optional: Vibrate or play sound here
+    }
+  }, [distance, duration, isTracking, isPaused, goal, goalReached]);
 
   const handleStop = async () => {
     stopTracking();
@@ -94,6 +140,24 @@ export default function StartScreen() {
 
         // Save to local database
         const savedRun = await saveRun(runData);
+
+        // Capture Map Snapshot
+        let snapshotUri = null;
+        if (mapRef.current) {
+          try {
+            snapshotUri = await mapRef.current.takeSnapshot({
+              width: 600,
+              height: 400,
+              format: 'png',
+              quality: 0.8,
+              result: 'file'
+            });
+            console.log('Map Snapshot captured:', snapshotUri);
+          } catch (err) {
+            console.error('Failed to capture map snapshot:', err);
+          }
+        }
+        setRunSnapshotUri(snapshotUri);
 
         // Try to save to Apple Health
         const healthSaved = await HealthKitService.saveWorkout({
@@ -123,12 +187,14 @@ export default function StartScreen() {
     }
   };
 
-  const handleShareToFeed = async (caption?: string) => {
+  const handleShareToFeed = async (caption?: string, type: 'story' | 'post' = 'story', imageUri?: string) => {
     if (completedRun) {
       try {
-        await shareRunToFeed(completedRun, caption);
+        const runToShare = { ...completedRun, imageUri: imageUri || runSnapshotUri };
+        await shareRunToFeed(runToShare, caption, type);
         setShowSummaryModal(false);
-        Alert.alert('Success', 'Your run has been shared to the Feed! 🎉');
+        const typeText = type === 'story' ? 'Story' : 'Post';
+        Alert.alert('Success', `Your run has been shared to your ${typeText}! 🎉`);
       } catch (error) {
         Alert.alert('Error', 'Failed to share run to feed.');
       }
@@ -138,6 +204,7 @@ export default function StartScreen() {
   const handleDismissModal = () => {
     setShowSummaryModal(false);
     setCompletedRun(null);
+    setRunSnapshotUri(null);
   };
 
   const formatDuration = (seconds: number) => {
@@ -265,30 +332,7 @@ export default function StartScreen() {
     </Modal>
   );
 
-  const MusicModal = () => (
-    <Modal visible={showMusicModal} animationType="slide" transparent={true} onRequestClose={() => setShowMusicModal(false)}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Music Control</Text>
-          <View style={styles.musicControls}>
-            <TouchableOpacity onPress={() => Alert.alert('Prev', 'Previous track')}>
-              <Ionicons name="play-skip-back" size={32} color={THEME.colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setIsPlayingMusic(!isPlayingMusic)}>
-              <Ionicons name={isPlayingMusic ? "pause-circle" : "play-circle"} size={64} color="#f97316" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => Alert.alert('Next', 'Next track')}>
-              <Ionicons name="play-skip-forward" size={32} color={THEME.colors.text} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.musicStatus}>{isPlayingMusic ? 'Now Playing: High Energy Mix' : 'Music Paused'}</Text>
-          <TouchableOpacity style={styles.modalCloseButton} onPress={() => setShowMusicModal(false)}>
-            <Text style={styles.modalCloseText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
+
 
   return (
     <View style={styles.container}>
@@ -318,9 +362,11 @@ export default function StartScreen() {
         {/* Large Map */}
         <View style={styles.mapContainer}>
           <MapComponent
+            ref={mapRef}
             currentLocation={currentLocation}
             runPoints={currentRunPoints}
             isTracking={isTracking}
+            targetRoute={targetRoute}
           />
           {!isTracking && (
             <View style={styles.mapOverlay} pointerEvents="none">
@@ -386,7 +432,7 @@ export default function StartScreen() {
               onPress={() => setShowGoalModal(true)}
             >
               <Ionicons name="flag" size={18} color="#f97316" />
-              <Text style={styles.subActionText}>{goal.type !== 'none' ? `${goal.value} ${goal.type}` : 'Set Goal'}</Text>
+              <Text style={styles.subActionText}>{goal.type !== 'none' ? `${goal.type === 'distance' ? (goal.value / 1000) + ' km' : (goal.value / 60) + ' min'}` : 'Set Goal'}</Text>
             </TouchableOpacity>
             <View style={styles.subActionDivider} />
             <TouchableOpacity
@@ -396,6 +442,20 @@ export default function StartScreen() {
               <Ionicons name="map" size={18} color="#f97316" />
               <Text style={styles.subActionText}>{selectedRoute ? selectedRoute.name : 'Choose Route'}</Text>
             </TouchableOpacity>
+          </View>
+        )}
+
+        {isTracking && goal.type !== 'none' && (
+          <View style={styles.goalStatusContainer}>
+            <Text style={styles.goalStatusText}>
+              Target: {goal.type === 'distance' ? `${(goal.value / 1000).toFixed(2)} km` : `${Math.floor(goal.value / 60)} min`}
+            </Text>
+            <Text style={styles.goalProgressText}>
+              {goal.type === 'distance'
+                ? `${((distance / goal.value) * 100).toFixed(0)}%`
+                : `${((duration / goal.value) * 100).toFixed(0)}%`
+              }
+            </Text>
           </View>
         )}
 
@@ -415,13 +475,6 @@ export default function StartScreen() {
             <Ionicons name="sparkles" size={24} color={aiCoachEnabled ? "#f97316" : THEME.colors.textSecondary} />
             <Text style={[styles.miniMenuText, aiCoachEnabled && { color: "#f97316" }]}>AI Coach</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.miniMenuItem}
-            onPress={() => setShowMusicModal(true)}
-          >
-            <Ionicons name="musical-notes" size={24} color={THEME.colors.textSecondary} />
-            <Text style={styles.miniMenuText}>Music</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -430,16 +483,17 @@ export default function StartScreen() {
       <GoalModal />
       <RoutesModal />
       <AICoachModal />
-      <MusicModal />
       <RunSummaryModal
         visible={showSummaryModal}
         runData={completedRun}
+        snapshotUri={runSnapshotUri}
         onShare={handleShareToFeed}
         onDismiss={handleDismissModal}
       />
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.colors.background },
@@ -486,4 +540,23 @@ const styles = StyleSheet.create({
   modalDescription: { fontSize: 14, color: THEME.colors.textSecondary, lineHeight: 20, textAlign: 'center' },
   musicControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 32, marginBottom: 24 },
   musicStatus: { textAlign: 'center', color: '#f97316', fontSize: 14, fontWeight: '500' },
+  goalStatusContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(249, 115, 22, 0.3)',
+  },
+  goalStatusText: {
+    color: '#f97316',
+    fontWeight: '600',
+  },
+  goalProgressText: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });

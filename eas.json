@@ -1,0 +1,27 @@
+{
+  "cli": {
+    "version": ">= 7.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal"
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "saif.laftimi@icloud.com",
+        "ascAppId": "6757342308",
+        "appleTeamId": "K938GFT99J"
+      }
+    }
+  }
+}

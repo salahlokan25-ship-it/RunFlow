@@ -5,7 +5,7 @@ import {
   updateProfile,
   User,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
 export interface UserProfile {
@@ -61,6 +61,17 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     return docSnap.data() as UserProfile;
   }
   return null;
+};
+
+export const deleteAccount = async (): Promise<void> => {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No user logged in');
+
+  // 1. Delete user document from Firestore
+  await deleteDoc(doc(db, 'users', user.uid));
+
+  // 2. Delete user authentication account
+  await user.delete();
 };
 
 export const updateUserProfile = async (

@@ -6,12 +6,14 @@ import { ChevronRight, Settings, Award, Target, Activity, MapPin } from 'lucide-
 import { THEME } from '../../src/theme';
 import { auth } from '../../src/config/firebase';
 import { signOut } from 'firebase/auth';
+import { deleteAccount } from '../../src/services/AuthService';
 import { getAllRuns } from '../../src/services/RunService';
 import { formatPace } from '../../src/utils/formatters';
 
 export default function SettingsScreen() {
   const [userEmail, setUserEmail] = useState('');
   const [userName, setUserName] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [stats, setStats] = useState({
     runCount: 0,
     totalDistance: 0,
@@ -65,6 +67,74 @@ export default function SettingsScreen() {
       ]
     );
   };
+
+  const performDeletion = async () => {
+    setDeleting(true);
+    try {
+      console.log('🔴 DELETION STARTED');
+
+      // Step 1: Delete user data from Firestore
+      await deleteAccount();
+      console.log('✅ Firestore data deleted');
+
+      // Step 2: Sign out (this also deletes auth user)
+      await signOut(auth);
+      console.log('✅ Signed out successfully');
+
+      // Step 3: Navigate to login
+      router.replace('/auth/login');
+      console.log('✅ Navigation complete');
+
+    } catch (error: any) {
+      console.error('❌ DELETION ERROR:', error);
+      setDeleting(false);
+
+      // Show specific error messages
+      if (error?.code === 'auth/requires-recent-login') {
+        Alert.alert(
+          'Re-authentication Required',
+          'For security, you must sign out and sign back in, then try deleting again.',
+          [
+            {
+              text: 'Sign Out Now',
+              onPress: async () => {
+                await signOut(auth);
+                router.replace('/auth/login');
+              }
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Deletion Failed',
+          `Error: ${error?.message || 'Unknown error'}`,
+          [{ text: 'OK' }]
+        );
+      }
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    if (deleting) return; // Prevent multiple taps
+
+    Alert.alert(
+      'Delete Account',
+      'Are you sure? This will permanently delete all your data and cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Forever',
+          style: 'destructive',
+          onPress: () => {
+            // Execute immediately, not in async callback
+            performDeletion();
+          },
+        },
+      ]
+    );
+  };
+
 
   const SettingRow = ({ icon: Icon, title, onPress }: any) => (
     <TouchableOpacity style={styles.settingRow} onPress={onPress}>
@@ -166,8 +236,31 @@ export default function SettingsScreen() {
       </View>
 
       {/* Sign Out */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutText}>Sign Out</Text>
+      {/* Sign Out */}
+      <TouchableOpacity
+        style={[styles.logoutButton, { backgroundColor: THEME.colors.primary, borderColor: THEME.colors.primary }]}
+        onPress={handleLogout}
+      >
+        <Text style={[styles.logoutText, { color: '#fff' }]}>Sign Out</Text>
+      </TouchableOpacity>
+
+      {/* Delete Account */}
+      <TouchableOpacity
+        style={[
+          styles.logoutButton,
+          {
+            backgroundColor: THEME.colors.error,
+            borderColor: THEME.colors.error,
+            marginTop: 12,
+            opacity: deleting ? 0.5 : 1
+          }
+        ]}
+        onPress={handleDeleteAccount}
+        disabled={deleting}
+      >
+        <Text style={[styles.logoutText, { color: '#fff' }]}>
+          {deleting ? 'Deleting Account...' : 'Delete Account'}
+        </Text>
       </TouchableOpacity>
 
       <Text style={styles.version}>Version 1.0.0</Text>

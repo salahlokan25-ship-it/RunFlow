@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarChart } from 'react-native-gifted-charts';
+import { BarChart, LineChart } from 'react-native-gifted-charts';
 import { TrendingUp, Clock, Award, Target } from 'lucide-react-native';
 import { useFocusEffect } from 'expo-router';
 import { THEME } from '../../src/theme';
@@ -20,6 +20,7 @@ export default function StatisticsScreen() {
     longestRun: 0,
     bestPace: 0,
   });
+  const [chartData, setChartData] = useState<any[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -68,6 +69,15 @@ export default function StatisticsScreen() {
         longestRun,
         bestPace,
       });
+
+      // Prepare Line Chart Data (Last 10 runs pace/distance)
+      const lastRuns = runs.slice(0, 10).reverse();
+      const lineData = lastRuns.map(r => ({
+        value: r.distance / 1000, // Distance in km
+        label: new Date(r.startTime).getDate().toString(),
+        dataPointText: (r.distance / 1000).toFixed(1)
+      }));
+      setChartData(lineData);
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
@@ -147,6 +157,66 @@ export default function StatisticsScreen() {
           showGradient
           xAxisLabelTextStyle={{ color: THEME.colors.textTertiary, fontSize: 10 }}
         />
+      </View>
+
+      {/* Progress Line Chart */}
+      <View style={styles.chartCard}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Distance Trend (Last 10 Runs)</Text>
+        </View>
+        {chartData.length > 0 ? (
+          <LineChart
+            data={chartData}
+            color={THEME.colors.primary}
+            thickness={3}
+            curved
+            hideRules
+            hideYAxisText
+            yAxisThickness={0}
+            xAxisThickness={0}
+            areaChart
+            startFillColor={THEME.colors.primary}
+            startOpacity={0.2}
+            endOpacity={0.0}
+            initialSpacing={10}
+            noOfSections={3}
+            xAxisLabelTextStyle={{ color: THEME.colors.textTertiary, fontSize: 10 }}
+            pointerConfig={{
+              pointerStripHeight: 160,
+              pointerStripColor: 'lightgray',
+              pointerStripWidth: 2,
+              pointerColor: 'lightgray',
+              radius: 6,
+              pointerLabelWidth: 100,
+              pointerLabelHeight: 90,
+              activatePointersOnLongPress: true,
+              autoAdjustPointerLabelPosition: false,
+              //   pointerLabelComponent: items => {
+              //     return (
+              //       <View
+              //         style={{
+              //           height: 90,
+              //           width: 100,
+              //           justifyContent: 'center',
+              //           marginTop: -30,
+              //           marginLeft: -40,
+              //         }}>
+              //         <Text style={{color: 'white', fontSize: 14, marginBottom:6, textAlign:'center'}}>
+              //           {items[0].date}
+              //         </Text>
+              //         <View style={{paddingHorizontal:14,paddingVertical:6, borderRadius:16, backgroundColor:'white'}}>
+              //           <Text style={{fontWeight: 'bold',textAlign:'center'}}>
+              //             {items[0].value + 'km'}
+              //           </Text>
+              //         </View>
+              //       </View>
+              //     );
+              //   },
+            }}
+          />
+        ) : (
+          <Text style={{ color: THEME.colors.textSecondary, textAlign: 'center', padding: 20 }}>No runs recorded yet</Text>
+        )}
       </View>
 
       {/* Personal Bests */}

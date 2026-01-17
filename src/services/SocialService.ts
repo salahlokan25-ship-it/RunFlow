@@ -140,14 +140,18 @@ const SHARED_RUNS_KEY = '@shared_runs';
 export interface SharedRun extends Run {
   sharedAt: number;
   caption?: string;
+  type: 'story' | 'post';
+  imageUri?: string;
 }
 
-export const shareRunToFeed = async (runData: Run, caption?: string): Promise<void> => {
+export const shareRunToFeed = async (runData: Run, caption?: string, type: 'story' | 'post' = 'story'): Promise<void> => {
+  // ... logic below will handle merging runData which now may contain imageUri if passed as such
   try {
     const sharedRun: SharedRun = {
       ...runData,
       sharedAt: Date.now(),
       caption,
+      type,
     };
 
     // Get existing shared runs
@@ -171,7 +175,25 @@ export const shareRunToFeed = async (runData: Run, caption?: string): Promise<vo
 export const getSharedRuns = async (): Promise<SharedRun[]> => {
   try {
     const data = await AsyncStorage.getItem(SHARED_RUNS_KEY);
-    return data ? JSON.parse(data) : [];
+    const runs: SharedRun[] = data ? JSON.parse(data) : [];
+
+    // Filter out expired stories (older than 24h)
+    // We keep posts forever, but stories expire.
+    const now = Date.now();
+    const validRuns = runs.filter(run => {
+      if (run.type === 'story') {
+        const age = now - run.sharedAt;
+        return age < 24 * 60 * 60 * 1000;
+      }
+      return true; // Keep posts
+    });
+
+    // If we filtered anything out, update storage
+    if (validRuns.length !== runs.length) {
+      await AsyncStorage.setItem(SHARED_RUNS_KEY, JSON.stringify(validRuns));
+    }
+
+    return validRuns;
   } catch (error) {
     console.error('Error getting shared runs:', error);
     return [];

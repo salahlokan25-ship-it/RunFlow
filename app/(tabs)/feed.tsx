@@ -3,8 +3,12 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, FlatList }
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../../src/theme';
 import { auth } from '../../src/config/firebase';
-import { getSharedRuns, SharedRun } from '../../src/services/SocialService';
+
+import { getSharedRuns, SharedRun, deleteSharedRun, shareRunToFeed } from '../../src/services/SocialService';
 import { StoryViewer } from '../../src/components/StoryViewer';
+import { RouteMapPreview } from '../../src/components/RouteMapPreview';
+import { CreatePostModal } from '../../src/components/CreatePostModal';
+import { Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 interface Story {
@@ -21,8 +25,10 @@ interface Post {
     avatar: string;
   };
   timeAgo: string;
-  mapImage: string;
-  stats: {
+
+  mapImage?: string; // Optional now, since we might have user image
+  userImage?: string; // New field for uploaded images
+  stats?: { // Optional for text/image-only posts
     distance: string;
     pace: string;
     time: string;
@@ -30,6 +36,7 @@ interface Post {
   caption: string;
   likes: number;
   comments: number;
+  runPoints?: any[]; // For map preview
 }
 
 export default function FeedScreen() {
@@ -67,6 +74,9 @@ export default function FeedScreen() {
   const [sharedRuns, setSharedRuns] = useState<SharedRun[]>([]);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [showStoryViewer, setShowStoryViewer] = useState(false);
+
+  const [showCreatePostModal, setShowCreatePostModal] = useState(false);
+  const [createMode, setCreateMode] = useState<'post' | 'story'>('post');
   const [storyIndex, setStoryIndex] = useState(0);
 
   useEffect(() => {
@@ -82,21 +92,72 @@ export default function FeedScreen() {
 
   const loadSharedRuns = async () => {
     const runs = await getSharedRuns();
-    // Filter out expired stories (older than 24 hours)
-    const now = Date.now();
-    const validRuns = runs.filter(run => (now - run.sharedAt) < 24 * 60 * 60 * 1000);
-    setSharedRuns(validRuns);
+    // Stories: type='story' AND recent (<24h). Posts: type='post' (permanent)
+    setSharedRuns(runs);
   };
 
+  // Filter for stories (circles)
+  const activeStories = sharedRuns.filter(run => {
+    const isRecent = (Date.now() - run.sharedAt) < 24 * 60 * 60 * 1000;
+    return run.type === 'story' && isRecent; // Strict: only manual 'story' type appears in ring
+  });
+
+  // Filter for posts (feed)
+  const postRuns = sharedRuns.filter(run => run.type === 'post'); // Permanent posts
+
   const openStoryViewer = (index: number = 0) => {
-    if (sharedRuns.length > 0) {
+    if (activeStories.length > 0) {
       setStoryIndex(index);
       setShowStoryViewer(true);
     }
   };
 
+  const handleAddStory = () => {
+    setCreateMode('story');
+    setShowCreatePostModal(true);
+  };
+
+  const handleOpenCreatePost = () => {
+    setCreateMode('post');
+    setShowCreatePostModal(true);
+  };
+
+  const handleCreatePost = async (caption: string, imageUri?: string) => {
+    // If mocking a run, we can attach the optional image
+    const dummyRun: any = {
+      id: Date.now().toString(),
+      distance: 0,
+      duration: 0,
+      calories: 0,
+      avgPace: 0,
+      startTime: Date.now(),
+      endTime: Date.now(),
+      points: [],
+      activityType: 'Post',
+      imageUri: imageUri // Use this in conversion
+    };
+
+    await shareRunToFeed(dummyRun, caption, createMode);
+    loadSharedRuns();
+    setShowCreatePostModal(false);
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    Alert.alert('Delete Post', 'Are you sure you want to delete this post?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteSharedRun(postId);
+          loadSharedRuns();
+        }
+      }
+    ]);
+  };
+
   // Convert shared runs to posts
-  const sharedRunPosts: Post[] = sharedRuns.map((run) => {
+  const sharedRunPosts: Post[] = postRuns.map((run) => {
     const formatDuration = (seconds: number) => {
       const mins = Math.floor(seconds / 60);
       const secs = seconds % 60;
@@ -129,14 +190,16 @@ export default function FeedScreen() {
       user: { name: 'You', avatar: 'https://via.placeholder.com/100' },
       timeAgo: formatTimeAgo(run.sharedAt),
       mapImage: 'https://via.placeholder.com/400x300',
-      stats: {
+      userImage: (run as any).imageUri, // Cast to any since Run doesn't strictly have imageUri yet in types, but we saved it
+      stats: run.distance > 0 ? {
         distance: formatDistance(run.distance),
         pace: formatPace(run.avgPace),
         time: formatDuration(run.duration),
-      },
-      caption: run.caption || 'Great run! 🏃‍♂️',
+      } : undefined,
+      caption: run.caption || '',
       likes: 0,
       comments: 0,
+      runPoints: run.points,
     };
   });
 
@@ -157,12 +220,17 @@ export default function FeedScreen() {
 
   const renderStory = ({ item }: { item: Story }) => {
     const isYourStory = item.id === '1';
-    const hasSharedRuns = sharedRuns.length > 0;
+    const hasSharedRuns = activeStories.length > 0;
 
     return (
       <TouchableOpacity
         style={styles.storyContainer}
-        onPress={() => isYourStory && hasSharedRuns ? openStoryViewer(0) : null}
+        onPress={() => {
+          if (isYourStory) {
+            if (hasSharedRuns) openStoryViewer(0);
+            else handleAddStory();
+          }
+        }}
       >
         <View style={[
           styles.storyRing,
@@ -207,31 +275,39 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        {/* Map Image */}
+        {/* Map or User Image */}
         <View style={styles.postMapContainer}>
-          <View style={styles.postMapPlaceholder}>
-            <Ionicons name="map" size={48} color="#f97316" />
-            <Text style={styles.postMapText}>Run Route Map</Text>
-          </View>
+          {item.userImage ? (
+            <Image source={{ uri: item.userImage }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+          ) : item.runPoints && item.runPoints.length > 0 ? (
+            <RouteMapPreview points={item.runPoints} />
+          ) : (
+            <View style={styles.postMapPlaceholder}>
+              <Ionicons name="image-outline" size={48} color={THEME.colors.textSecondary} />
+              <Text style={styles.postMapText}>No visual content</Text>
+            </View>
+          )}
         </View>
 
-        {/* Stats */}
-        <View style={styles.postStats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Distance</Text>
-            <Text style={styles.statValue}>{item.stats.distance}</Text>
+        {/* Stats - Only show if valid run stats exist */}
+        {item.stats && (
+          <View style={styles.postStats}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Distance</Text>
+              <Text style={styles.statValue}>{item.stats.distance}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Pace</Text>
+              <Text style={styles.statValue}>{item.stats.pace}</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>Time</Text>
+              <Text style={styles.statValue}>{item.stats.time}</Text>
+            </View>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Pace</Text>
-            <Text style={styles.statValue}>{item.stats.pace}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Time</Text>
-            <Text style={styles.statValue}>{item.stats.time}</Text>
-          </View>
-        </View>
+        )}
 
         {/* Caption */}
         <View style={styles.postCaption}>
@@ -261,6 +337,14 @@ export default function FeedScreen() {
           <TouchableOpacity style={styles.actionButton}>
             <Ionicons name="share-outline" size={20} color={THEME.colors.textSecondary} />
           </TouchableOpacity>
+          {item.user.name === 'You' && (
+            <TouchableOpacity
+              style={[styles.actionButton, { marginLeft: 16 }]}
+              onPress={() => handleDeletePost(item.id)}
+            >
+              <Ionicons name="trash-outline" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -274,7 +358,10 @@ export default function FeedScreen() {
           <Ionicons name="person" size={20} color="#fff" />
         </View>
         <Text style={styles.headerTitle}>Feed</Text>
-        <TouchableOpacity style={styles.headerAddButton}>
+        <TouchableOpacity
+          style={styles.headerAddButton}
+          onPress={handleOpenCreatePost}
+        >
           <Ionicons name="add-circle-outline" size={28} color={THEME.colors.text} />
         </TouchableOpacity>
       </View>
@@ -294,7 +381,7 @@ export default function FeedScreen() {
       {/* Story Viewer */}
       <StoryViewer
         visible={showStoryViewer}
-        stories={sharedRuns}
+        stories={activeStories}
         initialIndex={storyIndex}
         onClose={() => setShowStoryViewer(false)}
       />
@@ -306,6 +393,13 @@ export default function FeedScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.postsContent}
         showsVerticalScrollIndicator={false}
+      />
+
+      <CreatePostModal
+        visible={showCreatePostModal}
+        onClose={() => setShowCreatePostModal(false)}
+        onSubmit={handleCreatePost}
+        mode={createMode}
       />
     </View>
   );

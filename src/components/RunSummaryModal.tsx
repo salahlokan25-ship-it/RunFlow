@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X, Share2, MapPin, Clock, Zap, Flame } from 'lucide-react-native';
 import { THEME } from '../theme';
@@ -8,17 +8,19 @@ import { Run } from '../types';
 interface RunSummaryModalProps {
     visible: boolean;
     runData: Run | null;
-    onShare: (caption?: string) => void;
+    snapshotUri?: string | null;
+    onShare: (caption?: string, type?: 'story' | 'post', imageUri?: string) => void;
     onDismiss: () => void;
 }
 
 export const RunSummaryModal: React.FC<RunSummaryModalProps> = ({
     visible,
     runData,
+    snapshotUri,
     onShare,
     onDismiss,
 }) => {
-    console.log('RunSummaryModal props:', { visible, runData: !!runData });
+    console.log('RunSummaryModal props:', { visible, runData: !!runData, snapshotUri });
     const [caption, setCaption] = useState('');
 
     if (!runData) return null;
@@ -59,8 +61,14 @@ export const RunSummaryModal: React.FC<RunSummaryModalProps> = ({
 
                     {/* Map Preview */}
                     <View style={styles.mapContainer}>
-                        <MapPin size={48} color={THEME.colors.primary} />
-                        <Text style={styles.mapText}>Route Map</Text>
+                        {snapshotUri ? (
+                            <Image source={{ uri: snapshotUri }} style={styles.mapSnapshot} resizeMode="cover" />
+                        ) : (
+                            <>
+                                <MapPin size={48} color={THEME.colors.primary} />
+                                <Text style={styles.mapText}>Route Map</Text>
+                            </>
+                        )}
                     </View>
 
                     {/* Stats Grid */}
@@ -117,17 +125,39 @@ export const RunSummaryModal: React.FC<RunSummaryModalProps> = ({
 
                     {/* Action Buttons */}
                     <View style={styles.actions}>
-                        <TouchableOpacity style={styles.shareButton} onPress={() => onShare(caption)}>
-                            <LinearGradient
-                                colors={[THEME.colors.primary, THEME.colors.primaryHighlight]}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.shareButtonGradient}
+                        <View style={styles.shareButtonsRow}>
+                            <TouchableOpacity
+                                style={[styles.shareButton, styles.flex1]}
+                                onPress={() => onShare(caption, 'story', snapshotUri || undefined)}
                             >
-                                <Share2 size={20} color="#fff" />
-                                <Text style={styles.shareButtonText}>Share to Feed</Text>
-                            </LinearGradient>
-                        </TouchableOpacity>
+                                <LinearGradient
+                                    colors={[THEME.colors.primary, THEME.colors.primaryHighlight]}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.shareButtonGradient}
+                                >
+                                    <View style={styles.iconBadge}>
+                                        <Text style={styles.iconBadgeText}>24h</Text>
+                                    </View>
+                                    <Text style={styles.shareButtonText}>Story</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.shareButton, styles.flex1]}
+                                onPress={() => onShare(caption, 'post', snapshotUri || undefined)}
+                            >
+                                <LinearGradient
+                                    colors={[THEME.colors.secondary, '#3b82f6']}
+                                    start={{ x: 0, y: 0 }}
+                                    end={{ x: 1, y: 1 }}
+                                    style={styles.shareButtonGradient}
+                                >
+                                    <Share2 size={20} color="#fff" />
+                                    <Text style={styles.shareButtonText}>Post</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
 
                         <TouchableOpacity style={styles.dismissButton} onPress={onDismiss}>
                             <Text style={styles.dismissButtonText}>Not Now</Text>
@@ -174,6 +204,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     mapContainer: {
+
         height: 150,
         backgroundColor: THEME.colors.background,
         borderRadius: 16,
@@ -182,6 +213,11 @@ const styles = StyleSheet.create({
         marginBottom: 24,
         borderWidth: 1,
         borderColor: THEME.colors.border,
+        overflow: 'hidden',
+    },
+    mapSnapshot: {
+        width: '100%',
+        height: '100%',
     },
     mapText: {
         marginTop: 8,
@@ -257,6 +293,25 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         color: '#fff',
+    },
+    shareButtonsRow: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    flex1: {
+        flex: 1,
+    },
+    iconBadge: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 8,
+        marginRight: 4,
+    },
+    iconBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
     dismissButton: {
         paddingVertical: 16,

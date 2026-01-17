@@ -8,11 +8,13 @@ interface MapComponentProps {
   currentLocation: Location.LocationObject | null;
   runPoints: GPSPoint[];
   isTracking: boolean;
+  targetRoute?: GPSPoint[];
 }
 
-export const MapComponent: React.FC<MapComponentProps> = ({ currentLocation, runPoints, isTracking }) => {
+export const MapComponent = React.forwardRef<MapView, MapComponentProps>(({ currentLocation, runPoints, isTracking, targetRoute }, ref) => {
   return (
     <MapView
+      ref={ref}
       style={styles.map}
       showsUserLocation={true}
       followsUserLocation={true}
@@ -20,14 +22,25 @@ export const MapComponent: React.FC<MapComponentProps> = ({ currentLocation, run
       initialRegion={
         currentLocation
           ? {
-              latitude: currentLocation.coords.latitude,
-              longitude: currentLocation.coords.longitude,
-              latitudeDelta: 0.005,
-              longitudeDelta: 0.005,
-            }
+            latitude: currentLocation.coords.latitude,
+            longitude: currentLocation.coords.longitude,
+            latitudeDelta: 0.005,
+            longitudeDelta: 0.005,
+          }
           : undefined
       }
     >
+      {/* Target Route (Planned) */}
+      {targetRoute && targetRoute.length > 0 && (
+        <Polyline
+          coordinates={targetRoute.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))}
+          strokeWidth={4}
+          strokeColor="rgba(249, 115, 22, 0.5)" // Semi-transparent orange
+          lineDashPattern={[10, 5]}
+        />
+      )}
+
+      {/* Actual Run Path */}
       {runPoints.length > 0 && (
         <Polyline
           coordinates={runPoints.map((p) => ({ latitude: p.latitude, longitude: p.longitude }))}
@@ -37,7 +50,7 @@ export const MapComponent: React.FC<MapComponentProps> = ({ currentLocation, run
       )}
     </MapView>
   );
-};
+});
 
 const styles = StyleSheet.create({
   map: {
